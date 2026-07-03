@@ -20,7 +20,7 @@ export class NetworkPrinterDriver implements PrinterDriver {
   async print(job: PrintJobInput): Promise<void> {
     const buffer = new EscposBuilder()
       .text(job.content)
-      .feed(3)
+      .feed(5)
       .cut()
       .build();
 

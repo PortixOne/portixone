@@ -27,7 +27,7 @@ export class WindowsSpoolerPrinterDriver implements PrinterDriver {
       throw new PrinterNotFoundError();
     }
 
-    const buffer = new EscposBuilder().text(job.content).feed(3).cut().build();
+    const buffer = new EscposBuilder().text(job.content).feed(5).cut().build();
     const copies = job.copies ?? 1;
 
     const dir = await mkdtemp(join(tmpdir(), 'portix-print-'));
