@@ -1,9 +1,19 @@
 import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
-import { DEFAULT_RUNTIME_HOST, DEFAULT_RUNTIME_PORT } from '@portixone/shared';
+import { DEFAULT_NETWORK_PRINTER_PORT, DEFAULT_RUNTIME_HOST, DEFAULT_RUNTIME_PORT } from '@portixone/shared';
 import { StorageRepository } from '../storage/storage.repository.js';
 import { runtimeConfigSchema } from './config.schema.js';
-import type { RuntimeConfig } from './config.types.js';
+import type { PrinterDriverType, RuntimeConfig } from './config.types.js';
+
+const VALID_DRIVERS: PrinterDriverType[] = ['mock', 'network', 'windows-spooler'];
+
+function resolvePrinterDriver(stored?: PrinterDriverType): PrinterDriverType {
+  const fromEnv = process.env.PORTIX_PRINTER_DRIVER;
+  if (fromEnv && VALID_DRIVERS.includes(fromEnv as PrinterDriverType)) {
+    return fromEnv as PrinterDriverType;
+  }
+  return stored ?? 'mock';
+}
 
 export class ConfigService {
   private readonly storage = new StorageRepository<RuntimeConfig>(
@@ -21,7 +31,13 @@ export class ConfigService {
       port: Number(process.env.PORTIX_RUNTIME_PORT) || stored?.port || DEFAULT_RUNTIME_PORT,
       host: process.env.PORTIX_RUNTIME_HOST || stored?.host || DEFAULT_RUNTIME_HOST,
       apiKey: process.env.PORTIX_LOCAL_API_KEY || stored?.apiKey || randomUUID(),
-      defaultPrinter: stored?.defaultPrinter,
+      defaultPrinter: process.env.PORTIX_DEFAULT_PRINTER || stored?.defaultPrinter,
+      printerDriver: resolvePrinterDriver(stored?.printerDriver),
+      networkPrinterHost: process.env.PORTIX_NETWORK_PRINTER_HOST || stored?.networkPrinterHost,
+      networkPrinterPort:
+        Number(process.env.PORTIX_NETWORK_PRINTER_PORT) ||
+        stored?.networkPrinterPort ||
+        DEFAULT_NETWORK_PRINTER_PORT,
     };
 
     runtimeConfigSchema.parse(resolved);

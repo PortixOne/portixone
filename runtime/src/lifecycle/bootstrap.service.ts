@@ -18,9 +18,13 @@ export async function bootstrap(): Promise<RuntimeContext> {
   const config = configService.load();
 
   const logger = new LoggerService();
-  logger.info('Starting PortixOne Runtime', { host: config.host, port: config.port });
+  logger.info('Starting PortixOne Runtime', {
+    host: config.host,
+    port: config.port,
+    printerDriver: config.printerDriver,
+  });
 
-  const printerManager = new PrinterManager(logger);
+  const printerManager = new PrinterManager(config, logger);
   const queueManager = new QueueManager(printerManager, logger);
 
   const server = createApiServer({ configService, logger, queueManager });

@@ -16,8 +16,16 @@ First run generates `.data/config.json` with an auto-generated local `apiKey` (o
 - `POST /print` → requires `x-portix-api-key` header, body `{ content, printerName?, copies? }`
 - WebSocket (same root) → `status`, `job:queued`, `job:printed`, `job:error` events
 
-## Module status
+## Printer drivers
 
-Everything listed in `src/` is implemented for the MVP flow (Windows printing via the JS SDK). `printer/drivers/mock.driver.ts` logs the job as printed — real ESC/POS integration (`packages/escpos`) and the Windows spooler is the next iteration.
+Set `PORTIX_PRINTER_DRIVER` in `.env` (see `.env.example`):
+
+- `mock` (default) — logs the job as printed, no hardware needed. Good for developing without a printer attached.
+- `network` — sends raw ESC/POS bytes to an Ethernet/WiFi thermal printer's raw port (`PORTIX_NETWORK_PRINTER_HOST` / `PORTIX_NETWORK_PRINTER_PORT`, default `9100`). Pure Node `net` socket, no native dependencies. Verified byte-for-byte against a local test listener.
+- `windows-spooler` — sends raw ESC/POS bytes to a USB thermal printer installed as a named Windows printer (`PORTIX_DEFAULT_PRINTER`, or per-request `printerName`), via `winspool.drv` through a PowerShell P/Invoke helper (`scripts/send-raw-print.ps1`) — no node-gyp / native addon required. Verified that the script compiles and error-handles correctly; **physical print output has not yet been verified against a real ESC/POS printer** — do that before relying on this in production.
+
+Both real drivers build their byte stream with `packages/escpos`.
+
+## Module status
 
 **Future capability managers** (not implemented, not even as empty folders, by design — off-limits in the first 90 days): USB Manager, Bluetooth Manager, TCP Manager, Serial Manager, Driver Registry, Updater. These get added once the roadmap reaches cash drawer/scales/other devices.

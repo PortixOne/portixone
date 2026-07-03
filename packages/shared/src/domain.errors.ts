@@ -34,3 +34,9 @@ export class JobNotFoundError extends PortixError {
     super(`Job not found: ${jobId}`, 'JOB_NOT_FOUND');
   }
 }
+
+export class PrinterConnectionError extends PortixError {
+  constructor(details: string) {
+    super(`Could not reach printer: ${details}`, 'PRINTER_CONNECTION_FAILED');
+  }
+}

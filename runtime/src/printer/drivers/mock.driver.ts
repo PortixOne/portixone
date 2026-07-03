@@ -1,12 +1,13 @@
 import type { PrintJobInput } from '@portixone/protocol';
 import type { LoggerService } from '../../logger/logger.service.js';
+import type { PrinterDriver } from './printer-driver.types.js';
 
 /**
- * MVP stub — logs the job as printed instead of talking to real hardware.
- * Real ESC/POS + Windows spooler integration is the next iteration
- * (packages/escpos already builds the byte commands this driver will send).
+ * Logs the job as printed instead of talking to real hardware. Useful for
+ * local dev without a physical printer attached — see network.driver.ts and
+ * windows-spooler.driver.ts for real drivers.
  */
-export class MockPrinterDriver {
+export class MockPrinterDriver implements PrinterDriver {
   constructor(private readonly logger: LoggerService) {}
 
   async print(job: PrintJobInput): Promise<void> {
