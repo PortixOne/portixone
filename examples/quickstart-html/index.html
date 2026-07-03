@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>PortixOne — Quickstart</title>
+  </head>
+  <body>
+    <h1>PortixOne Quickstart</h1>
+    <p>Runtime must be running (<code>npm run dev</code> in <code>runtime/</code>).</p>
+
+    <label>
+      API key
+      <input id="apiKey" type="text" value="dev-local-key" />
+    </label>
+    <br /><br />
+    <button id="printBtn">Print test ticket</button>
+    <button id="statusBtn">Check status</button>
+
+    <pre id="output"></pre>
+
+    <script type="module">
+      import { createPortixClient } from '../../sdk-js/dist/index.js';
+
+      const output = document.getElementById('output');
+      const log = (label, data) => {
+        output.textContent = `${label}\n${JSON.stringify(data, null, 2)}\n\n` + output.textContent;
+      };
+
+      document.getElementById('printBtn').addEventListener('click', async () => {
+        const apiKey = document.getElementById('apiKey').value;
+        const portix = createPortixClient({ apiKey });
+        try {
+          const result = await portix.print({ content: 'Test ticket from PortixOne' });
+          log('print() ok', result);
+        } catch (error) {
+          log('print() failed', { message: error.message });
+        }
+      });
+
+      document.getElementById('statusBtn').addEventListener('click', async () => {
+        const apiKey = document.getElementById('apiKey').value;
+        const portix = createPortixClient({ apiKey });
+        try {
+          const status = await portix.getStatus();
+          log('getStatus() ok', status);
+        } catch (error) {
+          log('getStatus() failed', { message: error.message });
+        }
+      });
+    </script>
+  </body>
+</html>
