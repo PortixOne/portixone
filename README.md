@@ -75,27 +75,39 @@ Validated Runtime → Windows Spooler → Thermal Printer, end-to-end, from a re
 
 ## Monorepo structure
 
-| Folder | Status | Description |
-|---|---|---|
-| [`runtime/`](runtime) | Active (MVP) | Portix Runtime — headless local bridge (HTTP + WebSocket API + printer manager) |
-| [`sdk-js/`](sdk-js) | Active (MVP) | JavaScript SDK (`@portix/sdk`) for calling `print()` from a web app |
-| [`packages/protocol/`](packages/protocol) | Active (MVP) | Shared message contract between the runtime and SDKs |
-| [`packages/shared/`](packages/shared) | Active (MVP) | Shared constants and error types |
-| [`packages/escpos/`](packages/escpos) | Active (MVP) | ESC/POS command building |
-| [`examples/`](examples) | Active (MVP) | Minimal HTML demo — Time to First Print |
-| [`docs/`](docs) | Placeholder | Quickstart and troubleshooting |
-| [`cloud/`](cloud) | Planned | Auth, projects, API keys, dashboard |
-| [`sdk-dotnet/`](sdk-dotnet) | Planned | .NET SDK |
-| [`sdk-python/`](sdk-python) | Planned | Python SDK |
-| [`sdk-go/`](sdk-go) | Planned | Go SDK |
-| [`playground/`](playground) | Planned | Full Edge Platform |
+| Folder | Status | License | Description |
+|---|---|---|---|
+| [`runtime/`](runtime) | Active (MVP) | Open source | Portix Runtime — headless local bridge (HTTP + WebSocket API + printer manager) |
+| [`sdk-js/`](sdk-js) | Active (MVP) | Open source | JavaScript SDK (`@portix/sdk`) for calling `print()` from a web app |
+| [`packages/protocol/`](packages/protocol) | Active (MVP) | Open source | Shared message contract between the runtime and SDKs |
+| [`packages/shared/`](packages/shared) | Active (MVP) | Open source | Shared constants and error types |
+| [`packages/escpos/`](packages/escpos) | Active (MVP) | Open source | ESC/POS command building |
+| [`examples/`](examples) | Active (MVP) | Open source | Minimal HTML demo — Time to First Print |
+| [`docs/`](docs) | Placeholder | Open source | Quickstart and troubleshooting |
+| [`cli/`](cli) | Planned | Open source | Command-line interface for the runtime |
+| [`sdk-dotnet/`](sdk-dotnet) | Planned | Open source | .NET SDK |
+| [`sdk-python/`](sdk-python) | Planned | Open source | Python SDK |
+| [`sdk-go/`](sdk-go) | Planned | Open source | Go SDK |
+| [`playground/`](playground) | Planned | Open source | Full Edge Platform |
+| [`cloud/`](cloud) | Planned | **Closed — private repo** | Placeholder only; see [Open source vs. closed](#open-source-vs-closed) |
 
 ## Layered architecture
 
-1. **Cloud Platform** — authentication, projects, API keys, analytics, licensing, dashboard.
-2. **Secure Communication Layer** — HTTPS/WebSockets/TLS between cloud and runtime.
-3. **Portix Runtime (Edge Runtime)** — authenticates, validates, routes commands, and executes jobs locally.
-4. **Hardware Abstraction Layer** — printers, cash drawers, scanners, scales, displays, USB, Serial, Bluetooth, TCP/IP.
+1. **Cloud Platform** (closed) — authentication, projects, API keys, dashboard, device fleet management, licensing, telemetry, team organizations, managed updates, billing, enterprise sync.
+2. **Secure Communication Layer** (open) — HTTPS/WebSockets/TLS between cloud and runtime.
+3. **Portix Runtime (Edge Runtime)** (open) — authenticates, validates, routes commands, and executes jobs locally.
+4. **Hardware Abstraction Layer** (open) — printers, cash drawers, scanners, scales, displays, USB, Serial, Bluetooth, TCP/IP.
+
+## Open source vs. closed
+
+PortixOne is open-core. Everything a developer needs to run local printing — and every device capability in the Hardware Abstraction Layer — is open source. The multi-tenant Cloud Platform around it is a separate, closed product.
+
+| | |
+|---|---|
+| **Open source** (MIT, this repo) | Runtime · SDK (JS, .NET, Go, Python) · Protocol · Examples · CLI · Documentation |
+| **Closed** ([`portixhq/portix-cloud`](https://github.com/portixhq/portix-cloud), private) | Cloud — dashboard, device fleet management, licensing, telemetry, team organizations, managed updates, billing, enterprise sync |
+
+The [`cloud/`](cloud) folder in this repo is a structural placeholder only, so the layered architecture is visible from the root — it contains no proprietary code and never will.
 
 ## PortixOne repo network
 
@@ -113,4 +125,4 @@ This monorepo is the source of truth for development. The rest of the knowledge 
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT — see [LICENSE](LICENSE). Applies to everything in this repo (the Cloud Platform is closed and lives elsewhere — see [Open source vs. closed](#open-source-vs-closed)).

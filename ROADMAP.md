@@ -22,7 +22,11 @@
 - [ ] Barcode scanner (`Read`)
 - [ ] Scale (`ReadWeight`)
 - [ ] Customer display
-- [ ] Cloud platform — auth, projects, API keys, dashboard
+- [ ] CLI
 - [ ] .NET / Python / Go SDKs
 
 An item moves from `Next`/`Later` into `Runtime` only once it's validated the same way the first physical print was: against real hardware, not a mock.
+
+## Cloud Platform (closed, separate repo)
+
+Auth, projects, API keys, dashboard, device fleet management, licensing, telemetry, team organizations, managed updates, billing, enterprise sync. Not tracked in this roadmap — see [Open source vs. closed](README.md#open-source-vs-closed) in the README.
