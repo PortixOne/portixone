@@ -41,13 +41,33 @@ The first 90 days deliberately narrow scope to one high-value flow: **reliable l
 ## Quickstart
 
 ```bash
+npm install @portix/sdk
+```
+
+```js
+import { Portix } from "@portix/sdk";
+
+const portix = new Portix();
+
+await portix.connect();
+
+await portix.print({
+    content: "Hello PortixOne!"
+});
+```
+
+The printer prints. That's it.
+
+### Running this repo locally
+
+```bash
 npm install
 npm run dev        # starts the runtime on localhost
 npm run build       # builds all workspaces
 npm run typecheck
 ```
 
-Then open [`examples/quickstart-html/index.html`](examples/quickstart-html/index.html) to try the end-to-end printing flow.
+Then open [`examples/quickstart-html/index.html`](examples/quickstart-html/index.html) to try the end-to-end printing flow above in a browser.
 
 ## PortixOne repo network
 

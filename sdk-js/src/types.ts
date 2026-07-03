@@ -6,3 +6,10 @@ export interface PortixClientOptions {
   host?: string;
   port?: number;
 }
+
+export interface PortixOptions {
+  /** Defaults to the local-dev convention (`runtime/.env.example`'s `PORTIX_LOCAL_API_KEY`). */
+  apiKey?: string;
+  host?: string;
+  port?: number;
+}

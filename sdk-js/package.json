@@ -1,5 +1,5 @@
 {
-  "name": "@portixone/sdk-js",
+  "name": "@portix/sdk",
   "version": "0.1.0",
   "private": true,
   "type": "module",

@@ -18,18 +18,36 @@
 
     <pre id="output"></pre>
 
+    <!--
+      Plain HTML has no bundler to resolve npm package names, so this import
+      map stands in for one — point it at your own node_modules in a real app.
+    -->
+    <script type="importmap">
+      {
+        "imports": {
+          "@portixone/protocol": "../../packages/protocol/dist/index.js",
+          "@portixone/shared": "../../packages/shared/dist/index.js",
+          "zod": "https://esm.sh/zod@3.25.76"
+        }
+      }
+    </script>
     <script type="module">
-      import { createPortixClient } from '../../sdk-js/dist/index.js';
+      import { Portix } from '../../sdk-js/dist/index.js';
 
       const output = document.getElementById('output');
       const log = (label, data) => {
         output.textContent = `${label}\n${JSON.stringify(data, null, 2)}\n\n` + output.textContent;
       };
 
-      document.getElementById('printBtn').addEventListener('click', async () => {
+      const connect = () => {
         const apiKey = document.getElementById('apiKey').value;
-        const portix = createPortixClient({ apiKey });
+        return new Portix({ apiKey });
+      };
+
+      document.getElementById('printBtn').addEventListener('click', async () => {
         try {
+          const portix = connect();
+          await portix.connect();
           const result = await portix.print({ content: 'Test ticket from PortixOne' });
           log('print() ok', result);
         } catch (error) {
@@ -38,9 +56,9 @@
       });
 
       document.getElementById('statusBtn').addEventListener('click', async () => {
-        const apiKey = document.getElementById('apiKey').value;
-        const portix = createPortixClient({ apiKey });
         try {
+          const portix = connect();
+          await portix.connect();
           const status = await portix.getStatus();
           log('getStatus() ok', status);
         } catch (error) {

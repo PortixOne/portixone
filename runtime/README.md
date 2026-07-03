@@ -22,7 +22,7 @@ Set `PORTIX_PRINTER_DRIVER` in `.env` (see `.env.example`):
 
 - `mock` (default) — logs the job as printed, no hardware needed. Good for developing without a printer attached.
 - `network` — sends raw ESC/POS bytes to an Ethernet/WiFi thermal printer's raw port (`PORTIX_NETWORK_PRINTER_HOST` / `PORTIX_NETWORK_PRINTER_PORT`, default `9100`). Pure Node `net` socket, no native dependencies. Verified byte-for-byte against a local test listener.
-- `windows-spooler` — sends raw ESC/POS bytes to a USB thermal printer installed as a named Windows printer (`PORTIX_DEFAULT_PRINTER`, or per-request `printerName`), via `winspool.drv` through a PowerShell P/Invoke helper (`scripts/send-raw-print.ps1`) — no node-gyp / native addon required. Verified that the script compiles and error-handles correctly; **physical print output has not yet been verified against a real ESC/POS printer** — do that before relying on this in production.
+- `windows-spooler` — sends raw ESC/POS bytes to a USB thermal printer installed as a named Windows printer (`PORTIX_DEFAULT_PRINTER`, or per-request `printerName`), via `winspool.drv` through a PowerShell P/Invoke helper (`scripts/send-raw-print.ps1`) — no node-gyp / native addon required. Verified end-to-end against real hardware (a USB ESC/POS thermal printer), including the `/print` API route.
 
 Both real drivers build their byte stream with `packages/escpos`.
 
