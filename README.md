@@ -1,42 +1,41 @@
 # PortixOne
 
-> A secure edge runtime that enables browser-based applications to communicate with local hardware through a unified developer API.
+Local device infrastructure for modern web applications.
 
-**Current MVP scope: Windows local printing only.**
+```
+Browser
+  ↓
+PortixOne Runtime
+  ↓
+Driver
+  ↓
+Hardware
+```
 
-**Status**: MVP foundation (Scaffold v0.1)
-**Runtime**: Node.js + TypeScript, headless
-**SDK**: JavaScript/TypeScript only
+**One API. Multiple devices. Cross-platform.**
 
-## Vision
+PortixOne connects browser-based applications to local hardware — printers today, cash drawers, barcode scanners, scales, and customer displays next — through a single runtime and a unified capability model (`Print`, `Cut`, `OpenDrawer`, `ReadWeight`, ...), instead of a different integration per device and per OS.
 
-PortixOne isn't meant to be a one-off "device bridge" — it's infrastructure for connecting web software to local hardware safely, consistently, and simply: printers, cash drawers, barcode scanners, scales, customer displays, and more, all under a unified capability model (`Print`, `Cut`, `OpenDrawer`, `ReadWeight`, ...).
+**Status**: Experimental (`v0.0.1-alpha`) · **Current scope**: Windows local printing only.
 
-The first 90 days deliberately narrow scope to one high-value flow: **reliable local printing from a web app, on Windows, via the JS SDK**. Everything else (cash drawer, scales, Bluetooth, mobile, multi-tenant, marketplace) stays out until this is validated with real developers.
+## Milestones
 
-## Monorepo structure
+✅ **First Physical Print** — 2026-07-03
 
-| Folder | Status | Description |
-|---|---|---|
-| [`runtime/`](runtime) | Active (MVP) | Portix Runtime — headless local bridge (HTTP + WebSocket API + printer manager) |
-| [`sdk-js/`](sdk-js) | Active (MVP) | JavaScript SDK for calling `print()` from a web app |
-| [`packages/protocol/`](packages/protocol) | Active (MVP) | Shared message contract between the runtime and SDKs |
-| [`packages/shared/`](packages/shared) | Active (MVP) | Shared constants and error types |
-| [`packages/escpos/`](packages/escpos) | Active (MVP) | ESC/POS command building |
-| [`examples/`](examples) | Active (MVP) | Minimal HTML demo — Time to First Print |
-| [`docs/`](docs) | Placeholder | Quickstart and troubleshooting |
-| [`cloud/`](cloud) | Planned | Auth, projects, API keys, dashboard |
-| [`sdk-dotnet/`](sdk-dotnet) | Planned | .NET SDK |
-| [`sdk-python/`](sdk-python) | Planned | Python SDK |
-| [`sdk-go/`](sdk-go) | Planned | Go SDK |
-| [`playground/`](playground) | Planned | Full Edge Platform |
+```
+Browser
+  ↓
+Runtime
+  ↓
+Windows Spooler
+  ↓
+Thermal Printer
+```
 
-## Layered architecture
+<!-- TODO: replace with the real photo of the first printed receipt, e.g. docs/assets/first-physical-print.jpg -->
+![First physical print — a real receipt printed end-to-end through PortixOne](docs/assets/first-physical-print.jpg)
 
-1. **Cloud Platform** — authentication, projects, API keys, analytics, licensing, dashboard.
-2. **Secure Communication Layer** — HTTPS/WebSockets/TLS between cloud and runtime.
-3. **Portix Runtime (Edge Runtime)** — authenticates, validates, routes commands, and executes jobs locally.
-4. **Hardware Abstraction Layer** — printers, cash drawers, scanners, scales, displays, USB, Serial, Bluetooth, TCP/IP.
+Evidence, not decoration. See [CHANGELOG.md](CHANGELOG.md) for what shipped and [ROADMAP.md](ROADMAP.md) for what's next.
 
 ## Quickstart
 
@@ -68,6 +67,38 @@ npm run typecheck
 ```
 
 Then open [`examples/quickstart-html/index.html`](examples/quickstart-html/index.html) to try the end-to-end printing flow above in a browser.
+
+## Engineering Milestones
+
+A running log of what actually shipped and got validated — not a promise, a record.
+
+### 2026-07-03 — ✅ First Physical Print
+
+Validated Runtime → Windows Spooler → Thermal Printer, end-to-end, from a real browser tab against a physical USB thermal printer.
+
+## Monorepo structure
+
+| Folder | Status | Description |
+|---|---|---|
+| [`runtime/`](runtime) | Active (MVP) | Portix Runtime — headless local bridge (HTTP + WebSocket API + printer manager) |
+| [`sdk-js/`](sdk-js) | Active (MVP) | JavaScript SDK (`@portix/sdk`) for calling `print()` from a web app |
+| [`packages/protocol/`](packages/protocol) | Active (MVP) | Shared message contract between the runtime and SDKs |
+| [`packages/shared/`](packages/shared) | Active (MVP) | Shared constants and error types |
+| [`packages/escpos/`](packages/escpos) | Active (MVP) | ESC/POS command building |
+| [`examples/`](examples) | Active (MVP) | Minimal HTML demo — Time to First Print |
+| [`docs/`](docs) | Placeholder | Quickstart and troubleshooting |
+| [`cloud/`](cloud) | Planned | Auth, projects, API keys, dashboard |
+| [`sdk-dotnet/`](sdk-dotnet) | Planned | .NET SDK |
+| [`sdk-python/`](sdk-python) | Planned | Python SDK |
+| [`sdk-go/`](sdk-go) | Planned | Go SDK |
+| [`playground/`](playground) | Planned | Full Edge Platform |
+
+## Layered architecture
+
+1. **Cloud Platform** — authentication, projects, API keys, analytics, licensing, dashboard.
+2. **Secure Communication Layer** — HTTPS/WebSockets/TLS between cloud and runtime.
+3. **Portix Runtime (Edge Runtime)** — authenticates, validates, routes commands, and executes jobs locally.
+4. **Hardware Abstraction Layer** — printers, cash drawers, scanners, scales, displays, USB, Serial, Bluetooth, TCP/IP.
 
 ## PortixOne repo network
 
