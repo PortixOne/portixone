@@ -1,7 +1,7 @@
 # Docs
 
-Placeholder. Contenido real (quickstart, troubleshooting) es trabajo de las Semanas 1-8 del manual operativo, a medida que el flujo de impresión se vuelve real (más allá del `mock.driver.ts` actual).
+Placeholder. Real content (quickstart, troubleshooting) is Week 1-8 work per the operating manual, as the printing flow becomes real (beyond the current `mock.driver.ts`). The public-facing docs site is [`portix.dev/docs`](https://github.com/PortixOne/portix.dev).
 
-Por ahora:
-- Quickstart del SDK → [`sdk-js/README.md`](../sdk-js/README.md)
-- Cómo correr el runtime → [`runtime/README.md`](../runtime/README.md)
+For now:
+- SDK quickstart → [`sdk-js/README.md`](../sdk-js/README.md)
+- Running the runtime → [`runtime/README.md`](../runtime/README.md)

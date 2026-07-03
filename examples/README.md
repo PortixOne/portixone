@@ -1,5 +1,5 @@
 # Examples
 
-- [`quickstart-html/`](quickstart-html) — página HTML mínima que usa `@portixone/sdk-js` para imprimir un ticket de prueba contra el runtime local. Sirve directamente al objetivo "Time to First Print" del manual operativo.
+- [`quickstart-html/`](quickstart-html) — minimal HTML page that uses `@portixone/sdk-js` to print a test ticket against the local runtime. Serves the "Time to First Print" goal directly.
 
-Requiere `npm run build` (workspace `sdk-js`) antes de abrir `index.html`, y el runtime corriendo (`npm run dev`).
+Requires `npm run build` (in the `sdk-js` workspace) before opening `index.html`, and the runtime running (`npm run dev`).

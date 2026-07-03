@@ -1,3 +1,3 @@
 # playground
 
-**Planned — no iniciado.** Edge Platform completa — entorno interactivo para probar capacidades de dispositivos más allá de impresión. Visión de largo plazo (ver roadmap conceptual del documento de arquitectura).
+**Planned — not started.** Full Edge Platform — an interactive environment for testing device capabilities beyond printing. Long-term vision (see the roadmap in [`portix.dev/roadmap`](https://github.com/PortixOne/portix.dev) and the architecture vision doc).

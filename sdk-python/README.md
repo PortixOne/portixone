@@ -1,3 +1,3 @@
 # sdk-python
 
-**Planned — no iniciado.** SDK Python, portado desde el contrato en `packages/protocol` una vez validado con `sdk-js`.
+**Planned — not started.** Python SDK, ported from the contract in `packages/protocol` once validated with `sdk-js`.

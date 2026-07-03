@@ -1,6 +1,6 @@
 # @portixone/sdk-js
 
-SDK JavaScript para imprimir desde una web app hacia el Portix Runtime local.
+JavaScript SDK for printing from a web app to the local Portix Runtime.
 
 ## Quickstart
 
@@ -8,11 +8,11 @@ SDK JavaScript para imprimir desde una web app hacia el Portix Runtime local.
 import { createPortixClient } from '@portixone/sdk-js';
 
 const portix = createPortixClient({
-  apiKey: 'dev-local-key', // desde runtime/.data/config.json o tu .env
+  apiKey: 'dev-local-key', // from runtime/.data/config.json or your .env
 });
 
 await portix.print({ content: 'Hello from PortixOne' });
 const status = await portix.getStatus();
 ```
 
-`printerName` y `copies` son opcionales en `print()` — se agregan cuando el desarrollador necesita elegir una impresora específica o múltiples copias, sin romper la llamada básica.
+`printerName` and `copies` are optional on `print()` — they're there for when a developer needs to pick a specific printer or multiple copies, without breaking the basic call.
