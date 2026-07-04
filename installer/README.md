@@ -18,7 +18,9 @@ ISCC.exe installer\portixone.iss
 
 Output: `installer\dist\PortixOneRuntimeSetup.exe`.
 
-**Status**: compiled and verified end-to-end on this machine (silent install/reinstall/uninstall, service, tray, shortcuts — see below). Not verified: a machine with no Node.js/dev tools, and a real Windows restart — both need a human with a second machine or a reboot they've chosen to do, not something this was tested against here.
+**Status**: compiled and verified end-to-end, both ways that matter — silently/scripted (see below) and, most importantly, the actual real-user path: double-click the `.exe`, accept the UAC prompt, click through the wizard, land on Finished with the runtime already running and the tray already up. Confirmed working by a human doing exactly that. Not verified: a machine with no Node.js/dev tools, and a real Windows restart — both need a human with a second machine or a reboot they've chosen to do.
+
+One quirk specific to *automated* invocation: running Setup.exe from a scripted/tool-driven process (rather than a normal interactive double-click) can hit `Internal error: CallSpawnServer: Unexpected response: $0` — this is an Inno Setup elevation/IPC issue tied to how the calling process is spawned, not a bug in `portixone.iss`. Confirmed by reproducing it via automation and then having a human double-click the same `.exe` normally, which worked cleanly.
 
 ## Silent / scripted installs
 
