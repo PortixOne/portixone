@@ -12,10 +12,10 @@ npm start
 ```
 
 Shows a tray icon with:
-- A live status line — polls `GET /health` every 5s (`● Runtime online — <printer>` / `○ Runtime offline`)
-- **Open logs folder** — opens the Windows Service's log directory
-- **Restart service** — `net stop` + `net start` (needs an elevated/Administrator shell — the tray process itself doesn't need admin to run, but this specific action does)
-- **Quit** — closes the tray icon only; the service keeps running
+- A live status line — polls `GET /health` every 5s (`● Runtime online (v0.1.0)` / `○ Runtime offline`; hover for the default printer, if any)
+- **Open Logs** — opens the Windows Service's log directory. (A local Dashboard — status, printers, queue, logs, all in one localhost page — is a bigger follow-up, not a rename of this; see ROADMAP.)
+- **Restart Runtime** — `net stop` + `net start` on the Windows Service (needs an elevated/Administrator shell — the tray process itself doesn't need admin to run, but this specific action does)
+- **Close Tray** — closes the tray icon only; the Runtime keeps running in the background
 
 ## Why no Electron
 

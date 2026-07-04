@@ -45,6 +45,10 @@ VersionInfoCopyright=Copyright (C) 2026 {#MyAppPublisher}
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
+[Messages]
+FinishedLabel=PortixOne Runtime is ready. Your computer can now receive print jobs from applications using PortixOne.%n%nWindows Service installed%nRuntime started%nReady to receive print jobs%n%nVersion {#MyAppVersion}
+ClickFinish=
+
 [Files]
 Source: "staging\runtime\*"; DestDir: "{app}\runtime"; Flags: recursesubdirs ignoreversion
 Source: "staging\tray\*"; DestDir: "{app}\tray"; Flags: recursesubdirs ignoreversion
@@ -56,7 +60,14 @@ Name: "{userstartup}\PortixOne Tray"; Filename: "{code:GetNodePath}"; Parameters
 
 [Run]
 Filename: "{code:GetNodePath}"; Parameters: """{app}\runtime\scripts\service.install.js"""; WorkingDir: "{app}\runtime"; StatusMsg: "Installing the PortixOne Runtime service..."; Flags: runhidden waituntilterminated
-Filename: "{code:GetNodePath}"; Parameters: """{app}\tray\dist\index.js"""; WorkingDir: "{app}\tray"; Description: "Start the PortixOne tray icon now"; Flags: postinstall nowait skipifsilent
+; (Any previous tray instance is already killed in PrepareToInstall, above —
+; before Setup even gets here — so this always launches exactly one.)
+; Deliberately NOT using the `postinstall` flag: that ties this to the
+; interactive Finished-page checkbox, which doesn't exist under
+; /VERYSILENT — tested repeatedly, and the tray never launched that way.
+; The product goal is "operational with no further intervention" even for
+; a silent/scripted deployment, so this is just an unconditional step.
+Filename: "{code:GetNodePath}"; Parameters: """{app}\tray\dist\index.js"""; WorkingDir: "{app}\tray"; Flags: nowait runhidden
 
 [UninstallRun]
 ; Order matters: kill the tray first so it isn't holding file handles open
@@ -113,4 +124,29 @@ begin
   if LineBreakPos > 0 then
     NodePath := Copy(NodePath, 1, LineBreakPos - 1);
   Result := True;
+end;
+
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+var
+  ResultCode: Integer;
+  KillScript: String;
+begin
+  // Reinstalling/upgrading over a running tray otherwise trips Inno Setup's
+  // own Restart Manager "files in use" prompt (found by testing a real
+  // reinstall while the tray was open) — kill it here, before Setup checks
+  // for locked files, instead of relying on [Run] (which only executes
+  // after that check already happened) or the interactive prompt.
+  //
+  // Calls the already-installed kill-tray.ps1 (present from any prior
+  // install — this only matters on a reinstall, since a first-ever install
+  // has no tray running yet) rather than inlining the same filter here:
+  // an earlier version embedded the search pattern directly in this
+  // process's own -Command string, which made it match and kill *itself*
+  // mid-execution — found the hard way when repeated installs hung.
+  KillScript := ExpandConstant('{app}') + '\kill-tray.ps1';
+  if FileExists(KillScript) then
+    Exec('powershell.exe', '-NoProfile -ExecutionPolicy Bypass -File "' + KillScript + '"',
+      '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  Result := '';
+  NeedsRestart := False;
 end;

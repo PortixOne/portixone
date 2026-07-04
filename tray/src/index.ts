@@ -18,9 +18,9 @@ const daemonLogDir = join(__dirname, '..', '..', 'runtime', 'scripts', 'daemon')
 const SERVICE_NAME = 'PortixOne Runtime';
 const POLL_INTERVAL_MS = 5000;
 
-const OPEN_LOGS = 'Open logs folder';
-const RESTART_SERVICE = 'Restart service (needs admin)';
-const QUIT = 'Quit';
+const OPEN_LOGS = 'Open Logs';
+const RESTART_SERVICE = 'Restart Runtime';
+const CLOSE_TRAY = 'Close Tray';
 
 const statusItem = {
   title: 'Checking runtime status…',
@@ -38,9 +38,14 @@ const systray = new SysTray({
       statusItem,
       SysTray.separator,
       { title: OPEN_LOGS, tooltip: 'Open the service log folder', checked: false, enabled: true },
-      { title: RESTART_SERVICE, tooltip: 'Stop and start the Windows Service', checked: false, enabled: true },
+      { title: RESTART_SERVICE, tooltip: 'Stop and start the Runtime (needs admin)', checked: false, enabled: true },
       SysTray.separator,
-      { title: QUIT, tooltip: 'Quit this tray icon (the service keeps running)', checked: false, enabled: true },
+      {
+        title: CLOSE_TRAY,
+        tooltip: 'Close this tray icon — the Runtime keeps running in the background',
+        checked: false,
+        enabled: true,
+      },
     ],
   },
   debug: false,
@@ -61,7 +66,7 @@ await systray.onClick((action: ClickEvent) => {
         }
       });
       break;
-    case QUIT:
+    case CLOSE_TRAY:
       void systray.kill(false);
       process.exit(0);
       break;
@@ -72,9 +77,10 @@ await systray.onClick((action: ClickEvent) => {
 
 async function pollStatus(): Promise<void> {
   const health = await checkRuntimeHealth();
-  statusItem.title = health.online
-    ? `● Runtime online${health.defaultPrinter ? ` — ${health.defaultPrinter}` : ''}`
-    : '○ Runtime offline';
+  statusItem.title = health.online ? `● Runtime online${health.version ? ` (v${health.version})` : ''}` : '○ Runtime offline';
+  statusItem.tooltip = health.online
+    ? `PortixOne Runtime${health.defaultPrinter ? ` — default printer: ${health.defaultPrinter}` : ''}`
+    : 'PortixOne Runtime is not reachable';
   await systray.sendAction({ type: 'update-item', item: statusItem });
 }
 
