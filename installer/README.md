@@ -18,18 +18,26 @@ ISCC.exe installer\portixone.iss
 
 Output: `installer\dist\PortixOneRuntimeSetup.exe`.
 
-**Status**: `portixone.iss` is written but not yet compiled/tested on this machine — Inno Setup isn't installed here. Needs a real compile-and-run pass before this is verified end-to-end.
+**Status**: compiled and verified end-to-end on this machine (silent install/reinstall/uninstall, service, tray, shortcuts — see below). Not verified: a machine with no Node.js/dev tools, and a real Windows restart — both need a human with a second machine or a reboot they've chosen to do, not something this was tested against here.
 
 ## What it does
 
 1. Checks for Node.js on the target machine (fails with a clear message + link to nodejs.org if missing).
 2. Copies the staged runtime + tray into `Program Files\PortixOne`.
 3. Installs the Runtime as a Windows Service (`PortixOne Runtime`, auto-start, runs as `LocalSystem` — works without anyone logged in).
-4. Adds a Start Menu shortcut and a Startup shortcut for the tray app.
-5. Uninstalling removes the service and the installed files.
+4. Adds a Start Menu shortcut and a Startup shortcut for the tray app, and launches the tray immediately.
+5. Uninstalling kills the tray, removes the service, deletes every installed file (including what the running app generates afterwards — `.data/`, the service's log folder), and removes both shortcuts.
+
+## Verified (`/VERYSILENT` installs on this machine)
+
+- Fresh install → service running, `/health` responding, tray auto-launched, Start Menu + Startup shortcuts present.
+- Reinstall over an existing install → service kept running under the same install, not duplicated.
+- Uninstall → service gone, tray process gone, `Program Files\PortixOne` gone entirely, both shortcuts gone, `/health` unreachable.
+- Along the way: a first uninstall pass left `runtime`/`tray` empty folders behind because the tray was still holding file handles open when file removal ran, and Inno Setup didn't reliably prune deeply nested now-empty directories on its own either way. Fixed with a `kill-tray.ps1` step ordered first in `[UninstallRun]`, plus explicit `[UninstallDelete]` entries.
 
 ## Not done yet
 
 - Bundling a self-contained Node runtime (Node SEA or similar), so Node.js isn't a prerequisite.
-- Auto-update (Milestone 2.4 in the roadmap).
-- Code signing (unsigned installers trigger SmartScreen warnings).
+- Real icon / visual identity (today's tray icon is a solid-color placeholder — see `tray/scripts/generate-placeholder-icon.js`).
+- Code signing (unsigned installer — triggers SmartScreen warnings; `[Setup]` has a commented-out `SignTool` line ready for when a certificate exists).
+- Auto-update (Milestone 2.6 in the roadmap).
