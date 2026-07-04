@@ -37,11 +37,11 @@ See [CHANGELOG.md](CHANGELOG.md) for what shipped and [ROADMAP.md](ROADMAP.md) f
 ## Quickstart
 
 ```bash
-npm install @portix/sdk
+npm install @portixone/sdk
 ```
 
 ```js
-import { Portix } from "@portix/sdk";
+import { Portix } from "@portixone/sdk";
 
 const portix = new Portix();
 
@@ -78,7 +78,7 @@ Validated Runtime → Windows Spooler → Thermal Printer, end-to-end, from a re
 | Folder | Status | License | Description |
 |---|---|---|---|
 | [`runtime/`](runtime) | Active (MVP) | Open source | Portix Runtime — headless local bridge (HTTP + WebSocket API + printer manager) |
-| [`sdk-js/`](sdk-js) | Active (MVP) | Open source | JavaScript SDK (`@portix/sdk`) for calling `print()` from a web app |
+| [`sdk-js/`](sdk-js) | Active (MVP) | Open source | JavaScript SDK (`@portixone/sdk`) for calling `print()` from a web app |
 | [`packages/protocol/`](packages/protocol) | Active (MVP) | Open source | Shared message contract between the runtime and SDKs |
 | [`packages/shared/`](packages/shared) | Active (MVP) | Open source | Shared constants and error types |
 | [`packages/escpos/`](packages/escpos) | Active (MVP) | Open source | ESC/POS command building |

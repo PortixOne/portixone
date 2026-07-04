@@ -5,11 +5,11 @@ Placeholder — the public-facing docs site is [`portix.dev/docs`](https://githu
 ## Quickstart
 
 ```bash
-npm install @portix/sdk
+npm install @portixone/sdk
 ```
 
 ```js
-import { Portix } from "@portix/sdk";
+import { Portix } from "@portixone/sdk";
 
 const portix = new Portix();
 

@@ -15,8 +15,8 @@ Guiding question: *"Can a complete stranger successfully use PortixOne without a
 
 **Guiding principle**: do not add new features until an external developer has successfully used the previous one. The current risk is no longer technical — it's adoption.
 
-- [ ] **2.1 — Publish the SDK** (highest priority): `@portix/sdk` on npm, SemVer, changelog, production-ready README, TS typings, `npm install @portix/sdk` works with no manual steps and no cloning
-- [ ] **2.2 — Official Runtime Installer**: download → install → start runtime → `npm install @portix/sdk` → `new Portix()` → `connect()` → `print()`, no manual configuration
+- [ ] **2.1 — Publish the SDK** (highest priority): `@portixone/sdk` on npm, SemVer, changelog, production-ready README, TS typings, `npm install @portixone/sdk` works with no manual steps and no cloning
+- [ ] **2.2 — Official Runtime Installer**: download → install → start runtime → `npm install @portixone/sdk` → `new Portix()` → `connect()` → `print()`, no manual configuration
 - [ ] **2.3 — Mock mode**: `new Portix({ mode: "mock" })` renders a receipt preview instead of printing — zero hardware requirement, better tutorials/CI/first experience. Switching to production is only `mode: "runtime"`
 - [ ] **2.4 — Measure TTFP** (Time To First Print: from opening the docs to the first successful print). Good: < 5 min. Excellent: < 2 min. Measure continuously
 - [ ] **2.5 — External developer validation**: 5 external developers (React, Next.js, Vue, Electron, Node.js), documenting install problems, doc gaps, confusing APIs, runtime issues, error messages, missing examples. Fix every issue before adding major new features

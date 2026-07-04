@@ -8,7 +8,7 @@
 - Windows Spooler driver — raw ESC/POS bytes to a named Windows printer via `winspool.drv`, no native addon / node-gyp
 - Network driver — raw ESC/POS bytes over TCP/9100 for Ethernet/WiFi thermal printers
 - ESC/POS print pipeline (`packages/escpos`)
-- JavaScript SDK (`@portix/sdk`) — `new Portix().connect().print()`
+- JavaScript SDK (`@portixone/sdk`) — `new Portix().connect().print()`
 
 ### Fixed
 

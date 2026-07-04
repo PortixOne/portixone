@@ -1,15 +1,15 @@
-# @portix/sdk
+# @portixone/sdk
 
 JavaScript SDK for printing from a web app to the local Portix Runtime.
 
 ## Quickstart
 
 ```bash
-npm install @portix/sdk
+npm install @portixone/sdk
 ```
 
 ```js
-import { Portix } from "@portix/sdk";
+import { Portix } from "@portixone/sdk";
 
 const portix = new Portix();
 
