@@ -1,48 +1,87 @@
 # PortixOne Roadmap
 
-## Runtime
+**Goal**: when a developer lands on portix.one, the point isn't explaining what PortixOne does — it's getting them printing from their own application in under 5 minutes. Time To First Print (TTFP) is the project's primary KPI, and every phase below is sequenced to protect it.
 
-- [x] Runtime boots
-- [x] HTTP API
-- [x] Windows Spooler Driver
-- [x] First Physical Print
+**Three stages** (2026-07-05):
 
-## Phase 2 — Developer Zero
+```
+Fase 1–6   → Build the product
+Fase 7–9   → Build the developer experience
+Fase 10–12 → Build the business
+```
 
-**Objective**: validate that a developer who has never seen PortixOne can install it, connect to the runtime, and print a receipt without any assistance.
-
-Guiding question: *"Can a complete stranger successfully use PortixOne without asking the founder for help?"* If yes, onboarding is complete.
-
-**Guiding principle**: do not add new features until an external developer has successfully used the previous one. The current risk is no longer technical — it's adoption.
-
-- [x] **2.1 — Publish the SDK**: `@portixone/sdk` (with `@portixone/protocol` and `@portixone/shared`) live on npm. Verified with a real `npm install @portixone/sdk` from a clean directory, outside the monorepo, against the public registry
-- [x] **2.2 — Official Runtime Installer**: download → install → start runtime → `npm install @portixone/sdk` → `new Portix()` → `connect()` → `print()`, no manual configuration
-  - [x] Windows Service (`runtime/scripts/service.install.js`, via `node-windows` — no native deps). Verified: `/health` responded, a `/print` job was accepted while running as `LocalSystem` (physical output pending a printer being reconnected)
-  - [x] Tray app (`tray/`) — lightweight, no Electron (`systray2`). Verified running standalone and from the installed location, with a live status icon and working menu
-  - [x] Installer (`installer/portixone.iss`, Inno Setup) — compiled and verified end-to-end on this machine, including the harder cases: reinstalling *while the tray was actively running* (previously stacked duplicate tray processes, and separately could hang an unattended install on Inno Setup's "files in use" prompt), and a full uninstall (previously left empty folders behind because the tray still held file handles open). All fixed and re-verified — see `installer/README.md` for the specific bugs and fixes. Silent/scripted installs need `/CLOSEAPPLICATIONS /FORCECLOSEAPPLICATIONS`, documented there.
-  - [x] Tray UX pass per product review: menu items renamed to product language (`Restart Runtime`, `Close Tray`), status line dropped the raw printer name in favor of general status + version
-  - [x] **The actual real-user path, confirmed by a human**: double-click the `.exe` → accept UAC → click through the wizard → Finished page → runtime running, tray up. (Running Setup.exe from automated/scripted invocation instead of a normal double-click can hit an unrelated Inno Setup elevation quirk, `CallSpawnServer: Unexpected response` — confirmed to be specific to that invocation path, not the installer itself, since the same `.exe` worked cleanly double-clicked normally.)
-  - [ ] **Not verified — needs a human**: a clean machine with no Node.js/dev tools installed (today's installer requires Node.js as a prerequisite and fails with a clear message if it's missing — bundling a self-contained Node runtime would remove this, see below), and a real Windows restart to confirm the service auto-starts (both need a machine/reboot outside what this session can safely do)
-  - [ ] Bundle a self-contained Node runtime so Node.js isn't a prerequisite
-  - [ ] Real icon/visual identity (today's tray icon is a solid-color placeholder) and a code-signing certificate (installer is unsigned — triggers SmartScreen). Deliberate tech debt until real brand assets exist
-- [ ] **2.7 — Local Dashboard**: a `localhost` page showing status, printers, queue, and logs — replaces "Open Logs" with something closer to "Open Dashboard" once it's real. Flagged in product review as bigger than a tray menu rename, so it's its own item rather than done inline
-- [x] **2.3 — Mock mode**: `new Portix({ mode: "mock" })` renders a receipt preview instead of printing — zero hardware requirement, better tutorials/CI/first experience. Switching to production is only `mode: "runtime"`. `sdk-js@0.2.0` published; verified with a real `npm install` + `npm start` in `examples/basic-print` against the public registry
-- [ ] **2.4 — Measure TTFP** (Time To First Print: from opening the docs to the first successful print). Good: < 5 min. Excellent: < 2 min. Measure continuously
-- [ ] **2.5 — External developer validation**: 5 external developers (React, Next.js, Vue, Electron, Node.js), documenting install problems, doc gaps, confusing APIs, runtime issues, error messages, missing examples. Fix every issue before adding major new features
-- [ ] **2.6 — Auto-update and release system**: the installer/service update themselves without a manual reinstall. Depends on 2.2's installer actually shipping first
-
-### Not yet (delayed until Developer Zero is validated)
-
-Linux Runtime · macOS Runtime · Bluetooth · Serial · USB Discovery · Multi-printer · Cloud · Marketplace · Analytics · Billing — implement only if one of them directly blocks onboarding.
-
-## Phase 3 — Ecosystem
-
-After onboarding validation: Device Discovery · Printer Status API · Multi-printer Support · Linux Runtime · macOS Runtime · USB/HID/Bluetooth · Scales · Cash Drawers · SDK for Go · SDK for Python · SDK for .NET.
-
-## Cloud Platform (closed, separate repo)
-
-Auth, projects, API keys, dashboard, device fleet management, licensing, telemetry, team organizations, managed updates, billing, enterprise sync. Not tracked in this roadmap — see [Open source vs. closed](README.md#open-source-vs-closed) in the README.
+Up through Fase 6 this is engineering. From Fase 7 on, the work shifts to how the product is perceived and adopted — branding, the landing, and documentation stop being "marketing" and become part of the product itself, because a technically solid runtime that nobody can discover or trust is indistinguishable from one that doesn't work.
 
 ---
 
-**Product philosophy**: the objective is no longer proving that PortixOne works — it already does. The objective now is proving that anyone can make it work. When an external developer can install PortixOne, connect to a runtime, and print a receipt in under two minutes using only the official documentation, the onboarding phase is complete. Only then should the platform aggressively expand its capabilities. Developer Zero comes before Feature One.
+## FASE 1 — Core Architecture ✅
+
+SDK, Protocol, Shared, Runtime, HAL, communication layer, API design — the architecture meant to hold for years. Completed.
+
+## FASE 2 — Public SDK ✅
+
+`npm install @portixone/sdk` works today: published on the public registry, versioned, clean imports, basic docs. Completed for `@portixone/sdk@0.2.0` — though it predates the pairing/metrics/queue methods built since, so a republish is still owed (tracked under Fase 4/9's detail doc, not a blocker for this phase's original scope).
+
+## FASE 3 — Runtime 🟡
+
+The bridge between the browser and the OS: Windows service, local WebSocket, persistent queue, reconnection, printer discovery, persistence, auto-updates. Detailed build history: [MILESTONE_3.md](MILESTONE_3.md). Mostly built and verified against a live runtime. Two open items: real reconnect-on-drop logic in the SDK's WebSocket client (today `websocket.totalDisconnects` honestly counts disconnects the SDK never recovers from automatically — see project memory on metric naming), and a local dashboard (`localhost` page for status/printers/queue/logs) that's been scoped but not built.
+
+## FASE 4 — Runtime Installer 🟡
+
+Eliminate manual installation entirely — double-click, and "Runtime Running" appears with zero configuration. Must install the service, runtime, tray app, auto-updates, and drivers where applicable. **2026-07-05**: the hard blocker is resolved — `installer/build-staging.js` now downloads a pinned, checksum-verified Node.js binary and ships it under `{app}\node\node.exe`; `portixone.iss` runs the service installer, service uninstaller, and tray app through that bundled binary instead of searching the system `PATH`, and (verified) `node-windows` picks up `process.execPath` automatically, so the registered Windows Service itself runs on the bundled Node with no changes to `runtime/scripts/service.install.js`. Verified: staged runtime/tray resolve their own `node_modules` and boot correctly against the bundled `node.exe` alone. `installer\dist\PortixOneRuntimeSetup.exe` compiles cleanly against the new `.iss`, and a second, admin-free **Portable build** (`installer/build-portable.js` → `PortixOneRuntimePortable.zip`, no Windows Service/registry) was added and verified — the bundled `node.exe` runs the staged runtime standalone and answers `GET /health`. **Known tech debt**: a real end-to-end install on a machine with zero Node.js/dev tools is still unverified — Windows Sandbox didn't come up on the dev machine after two enable+reboot attempts, and no spare physical machine was available; picking this back up just needs a working Sandbox/VM or a second machine, not more code. See [MILESTONE_4.md](MILESTONE_4.md)'s Distribution epic for the full note. Remaining gaps: no code-signing certificate, no MSI build alongside the two formats above.
+
+## FASE 5 — Pairing & Onboarding 🔜
+
+`Download Runtime → Open → Connect → Pair → Done`, with no file editing, no token copying, no port configuration. The pairing mechanism itself exists (Milestone 3); what's left is making the full path feel automatic end-to-end, including a guided first print.
+
+## FASE 6 — Error System 🔜
+
+Errors a human can act on instead of raw exceptions — `ECONNRESET` becomes `Printer Offline`, `Out of Paper`, `Runtime not installed`, `Permission denied`, `Printer busy`, each naming its own fix. Base error handling exists from Milestone 3's hardware-failure work; still open: a debug-mode toggle for verbose logging, and a systematic pass over every error path to confirm it meets this bar.
+
+## FASE 7 — Branding & Design System 🔜
+
+Where Portix.one starts existing as a brand, not just a repo: wordmark, isotype, responsive logo, color palette, typography, iconography, spacing system, UI components, illustrations, motion guidelines, design tokens, brand voice, and the documentation to keep it all consistent across Landing, Docs, Runtime, Dashboard, SDK, GitHub, and social. Deliberately not started before now — branding before the underlying functionality was physically verified would have been solving the wrong problem first.
+
+## FASE 8 — Landing Experience 🔜
+
+A landing built to be *used* within minutes, not one built to sell. Full section-by-section spec: [LANDING.md](LANDING.md). Its only objective is minimizing Time To First Print.
+
+## FASE 9 — Documentation 🔜
+
+Quick Start, SDK reference, Runtime reference, API reference, Examples, FAQ, Troubleshooting, Roadmap, Changelog. Current state and gaps, detailed in [MILESTONE_4.md](MILESTONE_4.md)'s Developer Portal epic: docs today are scattered across per-package READMEs; examples exist and actually run (`basic-print`, `kubia-demo`, `stress-test`); no unified docs site, API reference, FAQ, or changelog yet.
+
+## FASE 10 — First External Developer 🔜
+
+Someone with zero contact with the founder gets a real print working using only the documentation — they don't message, they don't ask. Metric: **TTFP < 5 minutes**, ideal **< 2 minutes**. The `kubia-demo` audit ([MILESTONE_4.md](MILESTONE_4.md)'s Kubia epic — confirmed zero PortixOne-internal code leaking into a consumer) is the last internal check before a true outside stranger attempts this for real.
+
+## FASE 11 — First Paying Customer 🔜
+
+One real business paying for PortixOne because it solves a real problem for them. The amount doesn't matter — what's being validated is that the pain is real enough for someone to pay for the fix.
+
+## FASE 12 — Scaling 🔜
+
+After Fase 11 validates the business: Linux, macOS, Cloud Dashboard, Fleet Management, Multi-Tenant, Analytics, Teams, SSO, additional SDKs (Go, Python, .NET) — the full ecosystem, built only once there's a paying reason to.
+
+---
+
+## Detailed breakdowns
+
+- [MILESTONE_3.md](MILESTONE_3.md) — Runtime build-out: the groundwork behind Fases 3–6.
+- [MILESTONE_4.md](MILESTONE_4.md) — Distribution, Publishing, Developer Portal, Validation, and Kubia epics: the detail behind Fases 4, 9, and 10.
+- [LANDING.md](LANDING.md) — full landing page spec: the detail behind Fase 8.
+
+## Cloud Platform (closed, separate repo)
+
+Auth, projects, API keys, dashboard, device fleet management, licensing, telemetry, team organizations, managed updates, billing, enterprise sync. Not tracked in this roadmap — see [Open source vs. closed](README.md#open-source-vs-closed) in the README. This is the commercial surface Fase 11–12 eventually build toward.
+
+## Pricing model (for Fase 11)
+
+The monetization principle: revenue must never precede value. The SDK stays free and open; commercial value concentrates in the Runtime and the capabilities around administering it, so payment only becomes relevant once PortixOne is already part of a customer's workflow.
+
+- **Free** — SDK, 1 Runtime, 1 Printer, unlimited development use, community support, basic updates. `$0`.
+- **Pro** — unlimited printers, auto-updates, logs, monitoring, remote pairing, priority support, commercial use. Suggested `$19–29/month`.
+- **Business** — multi-tenant, fleet management, cloud dashboard, teams, analytics, SSO, SLA. `Contact Sales`.
+
+---
+
+**Product philosophy**: the objective is no longer proving that PortixOne works — it already does. The objective now is proving that anyone can make it work, and that they'll pay for it once it's part of their workflow. When an external developer can install PortixOne, connect to a runtime, and print a receipt in under two minutes using only the official documentation, Fase 10 is complete. Only then should the platform aggressively expand its capabilities. Developer Zero comes before Feature One — TTFP before anything else.

@@ -5,10 +5,11 @@ build/
 runtime/scripts/daemon/
 installer/staging/
 installer/dist/
+installer/.cache/
 *.log
 .env
 .env.local
 *.tsbuildinfo
 .DS_Store
 Thumbs.db
-.claude/settings.local.json
+.claude/
