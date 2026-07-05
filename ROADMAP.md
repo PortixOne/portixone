@@ -20,7 +20,7 @@ SDK, Protocol, Shared, Runtime, HAL, communication layer, API design — the arc
 
 ## FASE 2 — Public SDK ✅
 
-`npm install @portixone/sdk` works today: published on the public registry, versioned, clean imports, basic docs. Completed for `@portixone/sdk@0.2.0` — though it predates the pairing/metrics/queue methods built since, so a republish is still owed (tracked under Fase 4/9's detail doc, not a blocker for this phase's original scope).
+`npm install @portixone/sdk` works today: published on the public registry, versioned, clean imports, basic docs. **2026-07-05**: republished as `@portixone/sdk@0.3.0` (with `@portixone/protocol@0.2.0` and `@portixone/shared@0.2.0`) — every pairing/metrics/queue method built since `0.2.0` is now live, verified with a real `npm install` outside the monorepo. Tagged and released on GitHub (`sdk-v0.3.0`, `protocol-v0.2.0`, `shared-v0.2.0`) with changelogs.
 
 ## FASE 3 — Runtime 🟡
 

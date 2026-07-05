@@ -25,11 +25,11 @@ Getting PortixOne onto a machine that has never seen a dev environment.
 
 Getting the SDK and Runtime into other developers' hands through normal channels.
 
-- ⚠️ **npm**: `@portixone/sdk@0.2.0` is live on the public registry, verified with a real `npm install` from outside the monorepo. It predates this session — it doesn't have `pair`, `disconnect`, `listPrinters`, `getPrinter`, `cancel`, `getJobs`, `ping`, `on`, or `getMetrics` yet. Publishing the new version is a one-way action deliberately left for the user to trigger (`npm version` + `npm publish` in `sdk-js/`, whenever ready).
-- ❌ **GitHub Releases**: no release process tied to npm publishes exists yet.
-- ❌ **Versioning**: semver is implicit via `package.json` today; no documented policy for what bumps major/minor/patch across the monorepo's packages.
-- ❌ **Changelog**: no `CHANGELOG.md` anywhere in the repo yet.
-- ❌ **Release Notes**: none written for any past milestone.
+- ✅ **npm** (2026-07-05): `@portixone/shared@0.2.0`, `@portixone/protocol@0.2.0`, and `@portixone/sdk@0.3.0` are all live on the public registry — `pair`, `disconnect`, `listPrinters`, `getPrinter`, `cancel`, `getJobs`, `ping`, `on`, and `getMetrics` are all published now. Verified with a real `npm install @portixone/sdk@0.3.0` from outside the monorepo: the class loads and every new method is present on the prototype.
+- ✅ **GitHub Releases** (2026-07-05): tagged and released `shared-v0.2.0`, `protocol-v0.2.0`, `sdk-v0.3.0` on GitHub, notes drawn from each package's changelog.
+- ⚠️ **Versioning**: semver bumps are now judged deliberately per-release (checked the actual diff to classify breaking vs. additive — e.g. `protocol`'s `JobStatus` shape change was breaking, `shared`'s new error classes were additive) rather than guessed, but there's still no written policy doc codifying this for next time.
+- ✅ **Changelog** (2026-07-05): `CHANGELOG.md` added to `packages/shared`, `packages/protocol`, and `sdk-js`. Found via `npm pack --dry-run` that npm's always-included-files list is only `package.json`/`README`/`LICENSE` — `CHANGELOG.md` needed adding to each package's `files` array to actually publish, which was missed on the first pass and caught before publishing.
+- ✅ **Release Notes** (2026-07-05): written as part of the three GitHub Releases above.
 
 ## Epic 3 — Developer Portal
 
@@ -77,7 +77,7 @@ The distinction: not *Kubia Demo*, but *Kubia usa PortixOne* — a real `npm ins
 
 ⚠️ **`examples/kubia-demo/index.html` audited against exactly that bar** (grepped for `ESC`, `USB`, `driver`, `winspool`, `escpos`, `queue`, `pairing.`, `Windows`, COM ports, port `9100`) — zero matches. The demo only calls `new Portix()`, `connect()`, `pair()`, `on()`, `listPrinters()`, `print()`. The boundary holds for this one example.
 
-❌ **Not yet real**: `kubia-demo` imports PortixOne via a relative path inside this monorepo, not `npm install @portixone/sdk`. For "Kubia usa PortixOne" to be literally true, the new SDK version needs publishing (Epic 2) and Kubia needs to depend on it as an ordinary external package, used daily — not opened occasionally as a demo.
+❌ **Not yet real**: `kubia-demo` still imports PortixOne via a relative path inside this monorepo, not `npm install @portixone/sdk`. Epic 2's blocker is gone now — `@portixone/sdk@0.3.0` is live and has every method the demo uses — so what's left is purely: point a real Kubia project at `npm install @portixone/sdk` and use it daily, not open the demo occasionally.
 
 ---
 
