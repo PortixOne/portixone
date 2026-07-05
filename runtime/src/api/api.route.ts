@@ -1,29 +1,74 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { PortixError } from '@portixone/shared';
-import { AuthService } from '../auth/auth.service.js';
-import { assertApiKey } from '../auth/auth.middleware.js';
+import { AuthService, type AuthContext } from '../auth/auth.service.js';
+import { assertAdmin, assertAuthenticated, assertPermission } from '../auth/auth.middleware.js';
 import { SecurityService } from '../security/security.service.js';
 import type { ConfigService } from '../config/config.service.js';
 import type { LoggerService } from '../logger/logger.service.js';
-import type { QueueManager } from '../queue/queue.manager.js';
+import type { JobOwner } from '@portixone/protocol';
+import type { QueueService } from '../queue/queue.service.js';
+import type { PrinterManager } from '../printer/printer.manager.js';
+import type { PairingService } from '../pairing/pairing.service.js';
+import type { MetricsService } from '../metrics/metrics.service.js';
 import { handleHealth } from './health.controller.js';
 import { handlePrint } from './print.controller.js';
+import { handleGetPrinter, handleListPrinters } from './printers.controller.js';
+import { handleCancelJob, handleGetJobs } from './jobs.controller.js';
+import { handleGetMetrics } from './metrics.controller.js';
+import {
+  handleListPairings,
+  handleListPendingPairings,
+  handlePairingApprove,
+  handlePairingRequest,
+  handlePairingStatus,
+} from './pairing.controller.js';
 
 interface RouteDeps {
   configService: ConfigService;
   logger: LoggerService;
-  queueManager: QueueManager;
+  queueService: QueueService;
+  printerManager: PrinterManager;
+  pairingService: PairingService;
+  metricsService: MetricsService;
 }
 
 const STATUS_BY_ERROR_CODE: Record<string, number> = {
   INVALID_API_KEY: 401,
   PRINTER_NOT_FOUND: 404,
   INVALID_PRINT_JOB: 400,
+  INVALID_REQUEST: 400,
   JOB_NOT_FOUND: 404,
+  PAIRING_NOT_FOUND: 404,
+  UNTRUSTED_ORIGIN: 403,
+  PERMISSION_DENIED: 403,
+  JOB_NOT_CANCELLABLE: 409,
+  PRINTER_OFFLINE: 503,
+  PAPER_OUT: 503,
+  CONNECTION_LOST: 503,
+  PRINTER_TIMEOUT: 503,
+  PRINTER_BUSY: 409,
+  PRINTER_NOT_READY: 503,
+  INVALID_DRIVER_CONFIG: 503,
+  PRINTER_CONNECTION_FAILED: 503,
 };
 
-export function createApiServer({ configService, logger, queueManager }: RouteDeps): Server {
-  const auth = new AuthService();
+/** Admin key requests act on behalf of no single app; a paired token is scoped to its own tenant/app. */
+function toOwner(context: AuthContext): JobOwner | undefined {
+  if (context.isAdmin || !context.tenant || !context.appId) {
+    return undefined;
+  }
+  return { tenant: context.tenant, appId: context.appId };
+}
+
+export function createApiServer({
+  configService,
+  logger,
+  queueService,
+  printerManager,
+  pairingService,
+  metricsService,
+}: RouteDeps): Server {
+  const auth = new AuthService(pairingService);
   const security = new SecurityService();
 
   return createServer(async (req: IncomingMessage, res: ServerResponse) => {
@@ -35,15 +80,90 @@ export function createApiServer({ configService, logger, queueManager }: RouteDe
       return;
     }
 
+    const url = new URL(req.url ?? '/', 'http://localhost');
+    const pathname = url.pathname;
+    const adminKey = () => configService.get().apiKey;
+
     try {
-      if (req.method === 'GET' && req.url === '/health') {
+      if (req.method === 'GET' && pathname === '/health') {
         handleHealth(res, configService);
         return;
       }
 
-      if (req.method === 'POST' && req.url === '/print') {
-        assertApiKey(req, auth, configService.get().apiKey);
-        await handlePrint(req, res, queueManager);
+      if (req.method === 'GET' && pathname === '/ping') {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ pong: true }));
+        return;
+      }
+
+      if (req.method === 'POST' && pathname === '/print') {
+        const context = assertAuthenticated(req, auth, adminKey());
+        assertPermission(context, 'print');
+        await handlePrint(req, res, queueService, toOwner(context));
+        return;
+      }
+
+      if (req.method === 'GET' && pathname === '/printers') {
+        assertAuthenticated(req, auth, adminKey());
+        await handleListPrinters(res, printerManager);
+        return;
+      }
+
+      const printerMatch = pathname.match(/^\/printers\/([^/]+)$/);
+      if (req.method === 'GET' && printerMatch) {
+        assertAuthenticated(req, auth, adminKey());
+        await handleGetPrinter(res, printerManager, decodeURIComponent(printerMatch[1]));
+        return;
+      }
+
+      if (req.method === 'GET' && pathname === '/jobs') {
+        const context = assertAuthenticated(req, auth, adminKey());
+        handleGetJobs(res, queueService, toOwner(context));
+        return;
+      }
+
+      const cancelMatch = pathname.match(/^\/jobs\/([^/]+)\/cancel$/);
+      if (req.method === 'POST' && cancelMatch) {
+        const context = assertAuthenticated(req, auth, adminKey());
+        handleCancelJob(res, queueService, decodeURIComponent(cancelMatch[1]), toOwner(context));
+        return;
+      }
+
+      if (req.method === 'POST' && pathname === '/pairing/request') {
+        await handlePairingRequest(req, res, pairingService);
+        return;
+      }
+
+      if (req.method === 'GET' && pathname === '/pairing/status') {
+        handlePairingStatus(res, pairingService, url.searchParams.get('code'));
+        return;
+      }
+
+      if (req.method === 'POST' && pathname === '/pairing/approve') {
+        const context = assertAuthenticated(req, auth, adminKey());
+        assertAdmin(context);
+        await handlePairingApprove(req, res, pairingService);
+        return;
+      }
+
+      if (req.method === 'GET' && pathname === '/pairings') {
+        const context = assertAuthenticated(req, auth, adminKey());
+        assertAdmin(context);
+        handleListPairings(res, pairingService);
+        return;
+      }
+
+      if (req.method === 'GET' && pathname === '/pairing/pending') {
+        const context = assertAuthenticated(req, auth, adminKey());
+        assertAdmin(context);
+        handleListPendingPairings(res, pairingService);
+        return;
+      }
+
+      if (req.method === 'GET' && pathname === '/metrics') {
+        const context = assertAuthenticated(req, auth, adminKey());
+        assertAdmin(context);
+        handleGetMetrics(res, metricsService);
         return;
       }
 
@@ -51,7 +171,7 @@ export function createApiServer({ configService, logger, queueManager }: RouteDe
       res.end(
         JSON.stringify({
           error: 'NOT_FOUND',
-          message: `No route for ${req.method} ${req.url}`,
+          message: `No route for ${req.method} ${pathname}`,
         }),
       );
     } catch (error) {
@@ -59,9 +179,9 @@ export function createApiServer({ configService, logger, queueManager }: RouteDe
       const status = error instanceof PortixError ? (STATUS_BY_ERROR_CODE[err.code!] ?? 400) : 500;
 
       if (status >= 500) {
-        logger.error('Request failed', { url: req.url, error: err.message });
+        logger.error('Request failed', { url: pathname, error: err.message });
       } else {
-        logger.warn('Request rejected', { url: req.url, error: err.message });
+        logger.warn('Request rejected', { url: pathname, error: err.message });
       }
 
       res.writeHead(status, { 'Content-Type': 'application/json' });

@@ -13,6 +13,7 @@
     "generate-icon": "node scripts/generate-placeholder-icon.js"
   },
   "dependencies": {
+    "@portixone/protocol": "*",
     "@portixone/shared": "*",
     "systray2": "^2.1.4"
   },

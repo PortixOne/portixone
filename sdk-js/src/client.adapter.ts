@@ -1,38 +1,99 @@
 import { API_KEY_HEADER } from '@portixone/protocol';
 import { DEFAULT_RUNTIME_HOST, DEFAULT_RUNTIME_PORT } from '@portixone/shared';
-import type { PortixClientOptions, PrintOptions, PrintResult, RuntimeStatusResult } from './types.js';
+import type {
+  JobRecord,
+  PairingRequestResult,
+  PairingStatusResult,
+  PortixClientOptions,
+  PrinterInfo,
+  PrintOptions,
+  PrintResult,
+  RuntimeMetrics,
+  RuntimeStatusResult,
+} from './types.js';
+
+interface RequestOptions {
+  body?: unknown;
+  /** Pairing endpoints are called before an app has any credential — skip the header for those. */
+  authenticated?: boolean;
+}
 
 export class ClientAdapter {
   private readonly baseUrl: string;
+  private apiKey: string;
 
-  constructor(private readonly options: PortixClientOptions) {
+  constructor(options: PortixClientOptions) {
     const host = options.host ?? DEFAULT_RUNTIME_HOST;
     const port = options.port ?? DEFAULT_RUNTIME_PORT;
     this.baseUrl = `http://${host}:${port}`;
+    this.apiKey = options.apiKey;
+  }
+
+  /** Swaps in a per-pairing scoped token once `pair()` is approved, replacing the shared admin key. */
+  setCredential(token: string): void {
+    this.apiKey = token;
   }
 
   async print(job: PrintOptions): Promise<PrintResult> {
-    const response = await fetch(`${this.baseUrl}/print`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        [API_KEY_HEADER]: this.options.apiKey,
-      },
-      body: JSON.stringify(job),
-    });
-
-    const body = await response.json();
-    if (!response.ok) {
-      throw new Error(body.message ?? `PortixOne print request failed (${response.status})`);
-    }
-    return body as PrintResult;
+    return this.requestJson<PrintResult>('POST', '/print', { body: job });
   }
 
   async getStatus(): Promise<RuntimeStatusResult> {
-    const response = await fetch(`${this.baseUrl}/health`);
-    if (!response.ok) {
-      throw new Error(`PortixOne runtime unreachable (${response.status})`);
+    return this.requestJson<RuntimeStatusResult>('GET', '/health', { authenticated: false });
+  }
+
+  async ping(): Promise<{ pong: boolean }> {
+    return this.requestJson('GET', '/ping', { authenticated: false });
+  }
+
+  async listPrinters(): Promise<PrinterInfo[]> {
+    return this.requestJson('GET', '/printers');
+  }
+
+  async getPrinter(name: string): Promise<PrinterInfo> {
+    return this.requestJson('GET', `/printers/${encodeURIComponent(name)}`);
+  }
+
+  async getJobs(): Promise<JobRecord[]> {
+    return this.requestJson('GET', '/jobs');
+  }
+
+  async cancel(jobId: string): Promise<PrintResult> {
+    return this.requestJson('POST', `/jobs/${encodeURIComponent(jobId)}/cancel`);
+  }
+
+  async requestPairing(tenant: string, appId: string): Promise<PairingRequestResult> {
+    return this.requestJson('POST', '/pairing/request', { body: { tenant, appId }, authenticated: false });
+  }
+
+  async getPairingStatus(code: string): Promise<PairingStatusResult> {
+    return this.requestJson('GET', `/pairing/status?code=${encodeURIComponent(code)}`, { authenticated: false });
+  }
+
+  async getMetrics(): Promise<RuntimeMetrics> {
+    return this.requestJson('GET', '/metrics');
+  }
+
+  private async requestJson<T>(method: string, path: string, options: RequestOptions = {}): Promise<T> {
+    const { body, authenticated = true } = options;
+    const headers: Record<string, string> = {};
+    if (body !== undefined) {
+      headers['Content-Type'] = 'application/json';
     }
-    return (await response.json()) as RuntimeStatusResult;
+    if (authenticated) {
+      headers[API_KEY_HEADER] = this.apiKey;
+    }
+
+    const response = await fetch(`${this.baseUrl}${path}`, {
+      method,
+      headers,
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
+
+    const responseBody = await response.json();
+    if (!response.ok) {
+      throw new Error(responseBody.message ?? `PortixOne request failed (${response.status})`);
+    }
+    return responseBody as T;
   }
 }

@@ -1,3 +1,6 @@
 export * from './job.types.js';
 export * from './job.schema.js';
 export * from './protocol.constants.js';
+export * from './pairing.types.js';
+export * from './pairing.schema.js';
+export * from './metrics.types.js';

@@ -1,10 +1,13 @@
 import { Socket } from 'node:net';
 import type { PrintJobInput } from '@portixone/protocol';
 import { EscposBuilder } from '@portixone/escpos';
-import { PrinterConnectionError } from '@portixone/shared';
+import { PrinterConnectionError, PrinterConnectionLostError, PrinterOfflineError, PrinterTimeoutError } from '@portixone/shared';
 import type { PrinterDriver } from './printer-driver.types.js';
 
 const CONNECT_TIMEOUT_MS = 5000;
+
+/** Node socket error codes that mean "nothing is listening/reachable there" — i.e. the printer looks powered off or unreachable. */
+const OFFLINE_CODES = new Set(['ECONNREFUSED', 'EHOSTUNREACH', 'ENETUNREACH', 'EHOSTDOWN']);
 
 /**
  * Sends raw ESC/POS bytes to a network/Ethernet thermal printer over its raw
@@ -34,22 +37,25 @@ export class NetworkPrinterDriver implements PrinterDriver {
     return new Promise((resolve, reject) => {
       const socket = new Socket();
       let settled = false;
+      let connected = false;
+      const target = `${this.host}:${this.port}`;
 
-      const fail = (message: string): void => {
+      const fail = (error: Error & { code?: string }): void => {
         if (settled) return;
         settled = true;
         socket.destroy();
-        reject(new PrinterConnectionError(`${this.host}:${this.port} — ${message}`));
+        reject(this.classifyError(error, connected, target));
       };
 
       socket.setTimeout(CONNECT_TIMEOUT_MS);
-      socket.once('timeout', () => fail('connection timed out'));
-      socket.once('error', (err) => fail(err.message));
+      socket.once('timeout', () => fail(Object.assign(new Error('connection timed out'), { code: 'ETIMEDOUT' })));
+      socket.once('error', (err: Error & { code?: string }) => fail(err));
 
       socket.connect(this.port, this.host, () => {
+        connected = true;
         socket.write(buffer, (err) => {
           if (err) {
-            fail(err.message);
+            fail(err);
             return;
           }
           socket.end();
@@ -63,5 +69,24 @@ export class NetworkPrinterDriver implements PrinterDriver {
         }
       });
     });
+  }
+
+  /**
+   * Distinguishes "never reachable" (printer off / wrong address — before we
+   * ever connected) from "was reachable, then wasn't" (connection dropped
+   * mid-transfer — e.g. the printer's network interface died while
+   * printing), since those call for different human messages.
+   */
+  private classifyError(error: Error & { code?: string }, connected: boolean, target: string): Error {
+    if (error.code === 'ETIMEDOUT') {
+      return new PrinterTimeoutError(target);
+    }
+    if (!connected && error.code && OFFLINE_CODES.has(error.code)) {
+      return new PrinterOfflineError(target);
+    }
+    if (connected) {
+      return new PrinterConnectionLostError(target);
+    }
+    return new PrinterConnectionError(`${target} — ${error.message}`);
   }
 }

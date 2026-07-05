@@ -1,19 +1,43 @@
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
+import type { PrinterInfo } from '@portixone/protocol';
 
 const execFileAsync = promisify(execFile);
 
-export async function detectWindowsPrinters(): Promise<string[]> {
+interface RawPrinter {
+  Name?: string;
+  DriverName?: string;
+  PortName?: string;
+  PrinterStatus?: string;
+}
+
+export async function detectWindowsPrinters(): Promise<PrinterInfo[]> {
   try {
     const { stdout } = await execFileAsync('powershell.exe', [
       '-NoProfile',
       '-Command',
-      'Get-Printer | Select-Object -ExpandProperty Name',
+      // PrinterStatus is a PowerShell enum object — without .ToString() it
+      // serializes to its underlying integer, not a readable name.
+      'Get-Printer | Select-Object Name, DriverName, PortName, @{Name="PrinterStatus";Expression={$_.PrinterStatus.ToString()}} | ConvertTo-Json -Compress',
     ]);
-    return stdout
-      .split(/\r?\n/)
-      .map((line) => line.trim())
-      .filter(Boolean);
+
+    const trimmed = stdout.trim();
+    if (!trimmed) {
+      return [];
+    }
+
+    const parsed = JSON.parse(trimmed) as RawPrinter | RawPrinter[];
+    const printers = Array.isArray(parsed) ? parsed : [parsed];
+
+    return printers
+      .filter((printer): printer is Required<Pick<RawPrinter, 'Name'>> & RawPrinter => Boolean(printer?.Name))
+      .map((printer) => ({
+        name: printer.Name,
+        driver: printer.DriverName,
+        port: printer.PortName,
+        status: printer.PrinterStatus,
+        online: printer.PrinterStatus !== 'Offline',
+      }));
   } catch {
     return [];
   }

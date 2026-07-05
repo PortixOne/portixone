@@ -6,12 +6,17 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { PrintJobInput } from '@portixone/protocol';
 import { EscposBuilder } from '@portixone/escpos';
-import { PrinterConnectionError, PrinterNotFoundError } from '@portixone/shared';
+import { PrinterConnectionError, PrinterConnectionLostError, PrinterNotFoundError, PrinterTimeoutError } from '@portixone/shared';
 import type { PrinterDriver } from './printer-driver.types.js';
 
 const execFileAsync = promisify(execFile);
 
 const SCRIPT_PATH = fileURLToPath(new URL('../../../scripts/send-raw-print.ps1', import.meta.url));
+/** Guards against winspool.drv / the spooler service hanging — execFile has no timeout by default. */
+const SPOOLER_TIMEOUT_MS = 10000;
+
+/** send-raw-print.ps1's own thrown messages for a call that started but failed partway through. */
+const MID_OPERATION_FAILURES = ['StartDocPrinter failed', 'StartPagePrinter failed', 'WritePrinter failed', 'WritePrinter wrote'];
 
 /**
  * Sends raw ESC/POS bytes to a USB thermal printer installed as a named
@@ -44,21 +49,23 @@ export class WindowsSpoolerPrinterDriver implements PrinterDriver {
 
   private async sendToSpooler(printerName: string, dataFile: string): Promise<void> {
     try {
-      await execFileAsync('powershell.exe', [
-        '-NoProfile',
-        '-ExecutionPolicy',
-        'Bypass',
-        '-File',
-        SCRIPT_PATH,
-        '-PrinterName',
-        printerName,
-        '-DataFile',
-        dataFile,
-      ]);
+      await execFileAsync(
+        'powershell.exe',
+        ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', SCRIPT_PATH, '-PrinterName', printerName, '-DataFile', dataFile],
+        { timeout: SPOOLER_TIMEOUT_MS },
+      );
     } catch (error) {
-      const message = (error as Error).message;
+      const err = error as Error & { killed?: boolean; signal?: string | null };
+      if (err.killed || err.signal) {
+        throw new PrinterTimeoutError(printerName);
+      }
+
+      const message = err.message;
       if (message.includes('OpenPrinter failed')) {
         throw new PrinterNotFoundError(printerName);
+      }
+      if (MID_OPERATION_FAILURES.some((fragment) => message.includes(fragment))) {
+        throw new PrinterConnectionLostError(printerName);
       }
       throw new PrinterConnectionError(message);
     }
