@@ -20,6 +20,7 @@ import {
   handleListPendingPairings,
   handlePairingApprove,
   handlePairingRequest,
+  handlePairingRevoke,
   handlePairingStatus,
 } from './pairing.controller.js';
 
@@ -149,7 +150,15 @@ export function createApiServer({
       if (req.method === 'GET' && pathname === '/pairings') {
         const context = assertAuthenticated(req, auth, adminKey());
         assertAdmin(context);
-        handleListPairings(res, pairingService);
+        handleListPairings(res, pairingService, queueService);
+        return;
+      }
+
+      const revokeMatch = pathname.match(/^\/pairings\/([^/]+)$/);
+      if (req.method === 'DELETE' && revokeMatch) {
+        const context = assertAuthenticated(req, auth, adminKey());
+        assertAdmin(context);
+        handlePairingRevoke(res, pairingService, decodeURIComponent(revokeMatch[1]));
         return;
       }
 

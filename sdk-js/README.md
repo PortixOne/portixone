@@ -89,6 +89,8 @@ portix.on("paired", ({ deviceId, permissions }) => {
 
 `tenant` and `appId` are required to call `pair()` — they're how the runtime tells your integration apart from every other app paired to the same machine.
 
+**No approval needed from `localhost`, `127.0.0.1`, or a private-network origin (`192.168.x.x`, `10.x.x.x`, `172.16-31.x.x`)** — `pair()` resolves immediately with no human involved, since the browser's `Origin` header already proves it's this developer's own machine or LAN. This only kicks in for a real public domain, where the normal approve flow above still applies.
+
 ## API reference
 
 ### `new Portix(options?)`

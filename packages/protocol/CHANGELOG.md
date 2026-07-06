@@ -1,5 +1,9 @@
 # @portixone/protocol
 
+## 0.2.2
+
+- Added `lastUsedAt?: string` to `PairingRecord` and `recentJobCount: number` to `PairedAppSummary` — foundational fields for the runtime's new auto-trust and revoke support (see runtime CHANGELOG-equivalent in `MILESTONE_3.md`/`ROADMAP.md` Fase 5). Additive, no breaking changes.
+
 ## 0.2.1
 
 - Added `preview?: string` to `PrintJobResult` — the rendered text preview, present only when a job ran in the SDK's mock mode. Additive, no wire changes for real runtime prints.

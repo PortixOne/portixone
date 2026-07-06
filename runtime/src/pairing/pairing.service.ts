@@ -16,6 +16,28 @@ const CODE_TTL_MS = 5 * 60 * 1000;
 const APPROVED_GRACE_MS = 2 * 60 * 1000;
 const DEFAULT_PERMISSIONS: Permission[] = ['print'];
 
+/** Loopback and RFC 1918 private ranges — never reachable from outside this machine's own network. */
+const PRIVATE_IPV4 = /^(127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/;
+
+/**
+ * A pairing request from localhost or a private-network origin never needs a
+ * human to click "Allow" — the browser Origin already proves it's this
+ * developer's own machine or LAN, the same trust boundary SSH gives
+ * known-hosts on a private network. Anything else (a real public domain)
+ * still goes through the normal approve flow.
+ */
+function isTrustedOrigin(origin?: string): boolean {
+  if (!origin) {
+    return false;
+  }
+  try {
+    const hostname = new URL(origin).hostname;
+    return hostname === 'localhost' || hostname === '::1' || PRIVATE_IPV4.test(hostname);
+  } catch {
+    return false;
+  }
+}
+
 interface PendingPairing {
   tenant: string;
   appId: string;
@@ -43,7 +65,13 @@ export class PairingService {
     this.evictStale();
     const code = generateCode();
     const expiresAt = Date.now() + CODE_TTL_MS;
-    this.pending.set(code, { tenant, appId, origin, expiresAt });
+    const entry: PendingPairing = { tenant, appId, origin, expiresAt };
+    this.pending.set(code, entry);
+    if (isTrustedOrigin(origin)) {
+      // No human ever sees this one — status() below already returns
+      // 'approved' by the time the SDK's first poll comes in.
+      this.approveEntry(entry);
+    }
     return { code, expiresAt: new Date(expiresAt).toISOString() };
   }
 
@@ -54,7 +82,20 @@ export class PairingService {
       this.pending.delete(code);
       throw new PairingNotFoundError();
     }
+    return this.approveEntry(entry);
+  }
 
+  /** Revokes a paired app immediately — any request using its token fails with INVALID_API_KEY from then on. */
+  revoke(deviceId: string): boolean {
+    return this.store.remove(deviceId);
+  }
+
+  /** Bumps a paired app's last-used timestamp — called on every authenticated request (see auth.service.ts). */
+  touch(deviceId: string): void {
+    this.store.touchLastUsed(deviceId);
+  }
+
+  private approveEntry(entry: PendingPairing): PairingRecord {
     const requestedAt = entry.expiresAt - CODE_TTL_MS;
     const record: PairingRecord = {
       tenant: entry.tenant,

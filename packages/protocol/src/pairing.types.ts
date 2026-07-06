@@ -13,6 +13,8 @@ export interface PairingRecord {
   pairedAt: string;
   /** How long the request sat waiting for a human to approve it — computed once at approval, for the pairing-time metric (Milestone 4). */
   pairingDurationMs: number;
+  /** Bumped on every authenticated request from this app — see auth.service.ts / pairing.store.ts's touchLastUsed. */
+  lastUsedAt?: string;
 }
 
 export interface PairingRequestResult {
@@ -30,7 +32,10 @@ export interface PairingStatusResult {
 }
 
 /** Admin-facing view of a pairing — token is never included. */
-export type PairedAppSummary = Omit<PairingRecord, 'token'>;
+export interface PairedAppSummary extends Omit<PairingRecord, 'token'> {
+  /** Jobs from this app still within the queue's retention window (Milestone 3's 1000-job/30-day cap) — not a lifetime total. */
+  recentJobCount: number;
+}
 
 /** A pairing request awaiting a human's approval — e.g. shown in the tray's Pairing Requests menu. */
 export interface PendingPairingSummary {

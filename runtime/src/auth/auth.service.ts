@@ -32,6 +32,7 @@ export class AuthService {
     if (!pairing) {
       throw new InvalidApiKeyError();
     }
+    this.pairingService.touch(pairing.deviceId);
 
     return {
       isAdmin: false,
