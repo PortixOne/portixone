@@ -43,4 +43,6 @@ export interface PendingPairingSummary {
   tenant: string;
   appId: string;
   expiresAt: string;
+  /** The Origin header the request came in with, if the caller was a browser — shown to the human approving it. */
+  origin?: string;
 }

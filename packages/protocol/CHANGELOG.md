@@ -1,5 +1,9 @@
 # @portixone/protocol
 
+## 0.2.3
+
+- Added `origin?: string` to `PendingPairingSummary` — lets the tray's pairing-request notification show the requesting Origin (e.g. `localhost:3000`) instead of only the app's internal id. Additive.
+
 ## 0.2.2
 
 - Added `lastUsedAt?: string` to `PairingRecord` and `recentJobCount: number` to `PairedAppSummary` — foundational fields for the runtime's new auto-trust and revoke support (see runtime CHANGELOG-equivalent in `MILESTONE_3.md`/`ROADMAP.md` Fase 5). Additive, no breaking changes.

@@ -156,6 +156,7 @@ export class PairingService {
         tenant: entry.tenant,
         appId: entry.appId,
         expiresAt: new Date(entry.expiresAt).toISOString(),
+        origin: entry.origin,
       }));
   }
 

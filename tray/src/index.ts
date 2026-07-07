@@ -213,7 +213,8 @@ function printerMenuItem(printer: PrinterInfo): MenuItem {
 function pairingMenuItem(request: PendingPairingSummary): MenuItem {
   const title = `Approve ${request.appId} (${request.code})`;
   approveActionsByTitle.set(title, request.code);
-  return { title, tooltip: `Tenant: ${request.tenant} — expires ${request.expiresAt}`, checked: false, enabled: true };
+  const originPart = request.origin ? `${displayOrigin(request.origin)} — ` : '';
+  return { title, tooltip: `${originPart}Tenant: ${request.tenant} — expires ${request.expiresAt}`, checked: false, enabled: true };
 }
 
 async function pollHealth(): Promise<void> {
@@ -232,13 +233,30 @@ async function pollPrinters(): Promise<void> {
   await systray.sendAction({ type: 'update-menu', menu: buildMenu() });
 }
 
+/** "https://checkout.example.com" -> "checkout.example.com" — the scheme is noise once it's sitting next to "wants to print." */
+function displayOrigin(origin: string): string {
+  try {
+    const url = new URL(origin);
+    return url.port ? `${url.hostname}:${url.port}` : url.hostname;
+  } catch {
+    return origin;
+  }
+}
+
 function notifyNewPairingRequests(pending: PendingPairingSummary[]): void {
   const currentCodes = new Set(pending.map((p) => p.code));
   for (const request of pending) {
     if (!notifiedCodes.has(request.code)) {
+      // Favor the Origin (e.g. "localhost:3000 wants to print.") — it's what
+      // the person approving actually recognizes, same as a browser/macOS
+      // permission prompt. Falls back to the app's own id for non-browser
+      // callers, which never send an Origin header.
+      const subject = request.origin ? displayOrigin(request.origin) : request.appId;
       notifier.notify({
-        title: 'PortixOne',
-        message: `${request.appId} wants to connect to your printer.\nTenant: ${request.tenant} — click to review in the tray.`,
+        title: 'Portix.One',
+        message: `${subject} wants to print.\nTenant: ${request.tenant} — click to review in the tray.`,
+        icon: iconPath,
+        appID: 'Portix.One',
         sound: true,
       });
     }
