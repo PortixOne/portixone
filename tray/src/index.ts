@@ -2,6 +2,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { exec } from 'node:child_process';
 import { createRequire } from 'node:module';
+import notifier from 'node-notifier';
 import type { ClickEvent, Menu, MenuItem } from 'systray2';
 import { APP_VERSION } from '@portixone/shared';
 import type { PendingPairingSummary, PrinterInfo } from '@portixone/protocol';
@@ -19,6 +20,7 @@ const { default: SysTray } = require('systray2') as typeof import('systray2');
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const iconPath = join(__dirname, '..', 'assets', 'icon.ico');
+const iconPendingPath = join(__dirname, '..', 'assets', 'icon-pending.ico');
 const daemonLogDir = join(__dirname, '..', '..', 'runtime', 'scripts', 'daemon');
 
 const SERVICE_NAME = 'PortixOne Runtime';
@@ -77,10 +79,12 @@ const updateItem: MenuItem = {
   enabled: true,
 };
 let pendingDownloadUrl: string | undefined;
+/** Codes already notified about — a native toast should fire once per new request, not once per 5s poll. */
+let notifiedCodes = new Set<string>();
 
 function buildMenu(): Menu {
   return {
-    icon: iconPath,
+    icon: pairingSubmenu.hidden ? iconPath : iconPendingPath,
     title: 'PortixOne',
     tooltip: 'PortixOne Runtime',
     items: [
@@ -228,14 +232,32 @@ async function pollPrinters(): Promise<void> {
   await systray.sendAction({ type: 'update-menu', menu: buildMenu() });
 }
 
+function notifyNewPairingRequests(pending: PendingPairingSummary[]): void {
+  const currentCodes = new Set(pending.map((p) => p.code));
+  for (const request of pending) {
+    if (!notifiedCodes.has(request.code)) {
+      notifier.notify({
+        title: 'PortixOne',
+        message: `${request.appId} wants to connect to your printer.\nTenant: ${request.tenant} — click to review in the tray.`,
+        sound: true,
+      });
+    }
+  }
+  // Drop codes that are no longer pending (approved, expired, or denied) so
+  // the notified-set doesn't grow forever and a reused code can re-notify.
+  notifiedCodes = currentCodes;
+}
+
 async function pollPairing(): Promise<void> {
   const connection = readRuntimeConnection();
   const pending = connection ? await listPendingPairings(connection) : undefined;
   approveActionsByTitle = new Map();
   if (pending && pending.length > 0) {
+    notifyNewPairingRequests(pending);
     pairingSubmenu.hidden = false;
     pairingSubmenu.items = pending.map(pairingMenuItem);
   } else {
+    notifiedCodes = new Set();
     pairingSubmenu.hidden = true;
     pairingSubmenu.items = [];
   }

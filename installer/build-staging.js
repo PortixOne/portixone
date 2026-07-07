@@ -92,7 +92,27 @@ const RUNTIME_DEPS = [
   'utf-8-validate',
 ];
 
-const TRAY_DEPS = ['@portixone/shared', 'systray2', 'debug', 'ms', 'fs-extra', 'graceful-fs', 'jsonfile', 'universalify'];
+const TRAY_DEPS = [
+  '@portixone/protocol',
+  '@portixone/shared',
+  'systray2',
+  'debug',
+  'ms',
+  'fs-extra',
+  'graceful-fs',
+  'jsonfile',
+  'universalify',
+  // node-notifier (pairing-request toasts) and its own dependency closure
+  'node-notifier',
+  'growly',
+  'is-wsl',
+  'is-docker',
+  'semver',
+  'shellwords',
+  'uuid',
+  'which',
+  'isexe',
+];
 
 function copyDependency(name, destNodeModules) {
   const src = join(rootDir, 'node_modules', name);

@@ -15,10 +15,12 @@
   "dependencies": {
     "@portixone/protocol": "*",
     "@portixone/shared": "*",
+    "node-notifier": "^10.0.1",
     "systray2": "^2.1.4"
   },
   "devDependencies": {
     "@types/node": "^20.14.0",
+    "@types/node-notifier": "^8.0.5",
     "tsx": "^4.16.0",
     "typescript": "^5.5.0"
   }
