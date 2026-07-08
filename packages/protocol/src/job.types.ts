@@ -49,6 +49,8 @@ export interface RuntimeStatus {
   status: 'online';
   version: string;
   defaultPrinter?: string;
+  /** True when the Runtime's printer driver is `mock` — jobs are accepted and tracked but never reach real hardware. */
+  simulated: boolean;
 }
 
 /** A printer as reported by discovery — see `listPrinters()`/`getPrinter()`. */

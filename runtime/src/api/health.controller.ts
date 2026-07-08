@@ -8,6 +8,7 @@ export function handleHealth(res: ServerResponse, configService: ConfigService):
     status: 'online',
     version: PROTOCOL_VERSION,
     defaultPrinter: config.defaultPrinter,
+    simulated: config.printerDriver === 'mock',
   };
   res.writeHead(200, { 'Content-Type': 'application/json' });
   res.end(JSON.stringify(body));

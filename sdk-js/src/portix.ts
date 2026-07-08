@@ -178,7 +178,7 @@ export class Portix {
 
   async getStatus(): Promise<RuntimeStatusResult> {
     if (this.mode === 'mock') {
-      return { status: 'online', version: MOCK_VERSION };
+      return { status: 'online', version: MOCK_VERSION, simulated: true };
     }
     return this.requireAdapter().getStatus();
   }
