@@ -1,5 +1,5 @@
 import { API_KEY_HEADER } from '@portixone/protocol';
-import type { PendingPairingSummary, PrinterInfo } from '@portixone/protocol';
+import type { PairedAppSummary, PendingPairingSummary, PrinterInfo } from '@portixone/protocol';
 import type { RuntimeConnection } from './runtime-config.js';
 
 const REQUEST_TIMEOUT_MS = 3000;
@@ -25,6 +25,23 @@ export function listPrinters(connection: RuntimeConnection): Promise<PrinterInfo
 
 export function listPendingPairings(connection: RuntimeConnection): Promise<PendingPairingSummary[] | undefined> {
   return authenticatedGet<PendingPairingSummary[]>(connection, '/pairing/pending');
+}
+
+export function listPairedApps(connection: RuntimeConnection): Promise<PairedAppSummary[] | undefined> {
+  return authenticatedGet<PairedAppSummary[]>(connection, '/pairings');
+}
+
+export async function revokePairing(connection: RuntimeConnection, deviceId: string): Promise<boolean> {
+  try {
+    const response = await fetch(`http://${connection.host}:${connection.port}/pairings/${encodeURIComponent(deviceId)}`, {
+      method: 'DELETE',
+      headers: { [API_KEY_HEADER]: connection.apiKey },
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
 }
 
 export async function approvePairing(connection: RuntimeConnection, code: string): Promise<boolean> {

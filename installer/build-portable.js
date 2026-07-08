@@ -31,7 +31,10 @@ writeFileSync(
     'cd /d "%~dp0runtime"',
     'start "PortixOne Runtime" /min ..\\node\\node.exe --env-file-if-exists=.env dist\\index.js',
     'cd /d "%~dp0tray"',
-    'start "PortixOne Tray" /min ..\\node\\node.exe dist\\index.js',
+    // wscript.exe + launch-hidden.vbs, not node.exe directly — a console
+    // window can only be minimized, not hidden, so it'd flash and sit in
+    // the taskbar. See tray/launch-hidden.vbs for why.
+    'wscript.exe launch-hidden.vbs',
     '',
   ].join('\r\n'),
 );
@@ -44,9 +47,12 @@ writeFileSync(
     'No installation, no admin rights, no Windows Service -- everything here',
     'runs directly out of this folder using the bundled Node.js runtime.',
     '',
-    'To start: double-click "Start PortixOne.bat". Two minimized console',
-    'windows open (Runtime and Tray).',
-    'To stop: close those two windows, or end them from Task Manager.',
+    'To start: double-click "Start PortixOne.bat". One minimized console',
+    'window opens for the Runtime; the Tray runs fully hidden in the',
+    'background -- look for its icon in the system tray (you may need to',
+    'click the "^" arrow to see hidden icons).',
+    'To stop: close the Runtime window, and use the tray icon\'s "Close',
+    'Tray" menu item (or end both from Task Manager).',
     '',
     'This does NOT auto-start on boot and does NOT run without a user',
     'logged in. For that, use PortixOneRuntimeSetup.exe instead, which',

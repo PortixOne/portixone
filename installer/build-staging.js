@@ -95,6 +95,10 @@ const RUNTIME_DEPS = [
 const TRAY_DEPS = [
   '@portixone/protocol',
   '@portixone/shared',
+  // @portixone/protocol's schema validation imports zod at runtime — missing
+  // here crashed the packaged tray on startup with ERR_MODULE_NOT_FOUND
+  // (found by actually running the staged output, not just building it).
+  'zod',
   'systray2',
   'debug',
   'ms',
@@ -162,7 +166,7 @@ mkdirSync(join(stagingDir, 'node'), { recursive: true });
 cpSync(embeddedNodeExe, join(stagingDir, 'node', 'node.exe'));
 
 stageApp('runtime', RUNTIME_DEPS, ['scripts', '.env.example']);
-stageApp('tray', TRAY_DEPS, ['assets']);
+stageApp('tray', TRAY_DEPS, ['assets', 'launch-hidden.vbs']);
 
 // The generated node-windows daemon wrapper/logs are machine-specific —
 // never ship them, `service.install.js` (re)creates them on the target.

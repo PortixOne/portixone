@@ -5,10 +5,10 @@ import { createRequire } from 'node:module';
 import notifier from 'node-notifier';
 import type { ClickEvent, Menu, MenuItem } from 'systray2';
 import { APP_VERSION } from '@portixone/shared';
-import type { PendingPairingSummary, PrinterInfo } from '@portixone/protocol';
+import type { PairedAppSummary, PendingPairingSummary, PrinterInfo } from '@portixone/protocol';
 import { checkRuntimeHealth } from './runtime-status.js';
 import { readRuntimeConnection } from './runtime-config.js';
-import { approvePairing, listPendingPairings, listPrinters } from './runtime-client.js';
+import { approvePairing, listPairedApps, listPendingPairings, listPrinters, revokePairing } from './runtime-client.js';
 import { checkForUpdate } from './updater.js';
 import { downloadAndRunInstaller } from './update-installer.js';
 
@@ -28,6 +28,8 @@ const HEALTH_POLL_INTERVAL_MS = 5000;
 const PRINTERS_POLL_INTERVAL_MS = 15000;
 // Pairing requests need a human to notice and act on them promptly, so this polls as often as health.
 const PAIRING_POLL_INTERVAL_MS = 5000;
+// Connected apps is a management view, not a notification — no need to poll it as eagerly as pending requests.
+const CONNECTED_APPS_POLL_INTERVAL_MS = 15000;
 // Installers don't ship often yet — no need to hit GitHub's API more than a few times a day.
 const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
 
@@ -35,10 +37,48 @@ const OPEN_LOGS = 'Open Logs';
 const RESTART_SERVICE = 'Restart Runtime';
 const CLOSE_TRAY = 'Close Tray';
 const PRINTERS_HEADER = 'Printers';
-const NO_PRINTERS_ITEM: MenuItem = { title: 'No printers detected', tooltip: '', checked: false, enabled: false };
 const PAIRING_HEADER = 'Pairing Requests';
+const CONNECTED_APPS_HEADER = 'Connected Applications';
 const CHECK_FOR_UPDATES = 'Check for Updates';
 const INSTALL_UPDATE_NOW = 'Install Update Now';
+
+// systray2's native Windows tray binary only allocates a real menu-item
+// handle for whatever was in the very first payload it received (at
+// `ready()`); a later `update-menu` naming a brand-new item object — even
+// with a fresh, valid `__id` — gets silently dropped. Found by testing
+// directly: the JS-side data and the built menu tree were provably correct
+// (logged the exact JSON about to be sent), but the item never rendered.
+// The fix is a fixed pool of slot objects created once up front, part of
+// the initial menu so they get real handles, and mutated in place on every
+// poll instead of ever being replaced. Caps how many printers/pending
+// pairings/connected apps can show at once — generous for what any single
+// runtime realistically has; raise it if that stops being true.
+const MAX_DYNAMIC_SLOTS = 20;
+function createSlotPool(count: number): MenuItem[] {
+  return Array.from({ length: count }, () => ({ title: '', tooltip: '', checked: false, enabled: true, hidden: true }));
+}
+/** Fills a submenu's fixed slot pool from `data`, showing `emptyTitle` in the first slot when there's nothing to show. */
+function fillSlots<T>(slots: MenuItem[], data: T[], render: (slot: MenuItem, item: T) => void, emptyTitle: string): void {
+  if (data.length === 0) {
+    const [placeholder, ...rest] = slots;
+    placeholder.title = emptyTitle;
+    placeholder.tooltip = '';
+    placeholder.enabled = false;
+    placeholder.hidden = false;
+    rest.forEach((slot) => {
+      slot.hidden = true;
+    });
+    return;
+  }
+  slots.forEach((slot, i) => {
+    const item = data[i];
+    if (!item) {
+      slot.hidden = true;
+      return;
+    }
+    render(slot, item);
+  });
+}
 
 const statusItem: MenuItem = {
   title: 'Checking runtime status…',
@@ -52,7 +92,7 @@ const printersSubmenu: MenuItem = {
   tooltip: 'Printers detected by the runtime',
   checked: false,
   enabled: true,
-  items: [NO_PRINTERS_ITEM],
+  items: createSlotPool(MAX_DYNAMIC_SLOTS),
 };
 
 // Hidden until there's actually something to approve — this is the tray's
@@ -63,7 +103,18 @@ const pairingSubmenu: MenuItem = {
   checked: false,
   enabled: true,
   hidden: true,
-  items: [],
+  items: createSlotPool(MAX_DYNAMIC_SLOTS),
+};
+
+// Always visible (unlike pairingSubmenu) — this is a management view of
+// already-approved apps, not a notification, so "nothing connected yet" is
+// itself useful information rather than noise to hide.
+const connectedAppsSubmenu: MenuItem = {
+  title: CONNECTED_APPS_HEADER,
+  tooltip: 'Apps paired with this runtime — click one to revoke its access',
+  checked: false,
+  enabled: true,
+  items: createSlotPool(MAX_DYNAMIC_SLOTS),
 };
 
 // Two-step by design, not fully silent: a background check flips this item
@@ -92,6 +143,7 @@ function buildMenu(): Menu {
       SysTray.separator,
       printersSubmenu,
       pairingSubmenu,
+      connectedAppsSubmenu,
       SysTray.separator,
       { title: OPEN_LOGS, tooltip: 'Open the service log folder', checked: false, enabled: true },
       { title: RESTART_SERVICE, tooltip: 'Stop and start the Runtime (needs admin)', checked: false, enabled: true },
@@ -111,6 +163,8 @@ const systray = new SysTray({ menu: buildMenu(), debug: false });
 
 /** Maps a pairing-approval menu item's title back to its code — rebuilt every poll, titles must stay unique to be clickable. */
 let approveActionsByTitle = new Map<string, string>();
+/** Maps a connected-app menu item's title back to its deviceId — same rebuild-every-poll pattern as approveActionsByTitle. */
+let revokeActionsByTitle = new Map<string, string>();
 
 await systray.onClick((action: ClickEvent) => {
   switch (action.item.title) {
@@ -141,6 +195,11 @@ await systray.onClick((action: ClickEvent) => {
       const code = approveActionsByTitle.get(action.item.title);
       if (code) {
         void handleApprove(code);
+        break;
+      }
+      const deviceId = revokeActionsByTitle.get(action.item.title);
+      if (deviceId) {
+        void handleRevoke(deviceId);
       }
       break;
     }
@@ -157,6 +216,18 @@ async function handleApprove(code: string): Promise<void> {
     console.error(`Failed to approve pairing ${code} — it may have already expired or been handled.`);
   }
   await pollPairing(); // refresh immediately so the handled entry disappears without waiting for the next tick
+}
+
+async function handleRevoke(deviceId: string): Promise<void> {
+  const connection = readRuntimeConnection();
+  if (!connection) {
+    return;
+  }
+  const revoked = await revokePairing(connection, deviceId);
+  if (!revoked) {
+    console.error(`Failed to revoke pairing ${deviceId} — it may have already been removed.`);
+  }
+  await pollConnectedApps(); // refresh immediately so the revoked entry disappears without waiting for the next tick
 }
 
 async function handleCheckForUpdates(): Promise<void> {
@@ -200,21 +271,35 @@ async function handleInstallUpdate(): Promise<void> {
   }
 }
 
-function printerMenuItem(printer: PrinterInfo): MenuItem {
+function renderPrinterSlot(slot: MenuItem, printer: PrinterInfo): void {
   const indicator = printer.online ? '●' : '○';
-  return {
-    title: `${indicator} ${printer.name}${printer.status ? ` — ${printer.status}` : ''}`,
-    tooltip: [printer.driver, printer.port].filter(Boolean).join(' · '),
-    checked: false,
-    enabled: false,
-  };
+  slot.title = `${indicator} ${printer.name}${printer.status ? ` — ${printer.status}` : ''}`;
+  slot.tooltip = [printer.driver, printer.port].filter(Boolean).join(' · ');
+  slot.enabled = false;
+  slot.hidden = false;
 }
 
-function pairingMenuItem(request: PendingPairingSummary): MenuItem {
+function renderPairingSlot(slot: MenuItem, request: PendingPairingSummary): void {
   const title = `Approve ${request.appId} (${request.code})`;
   approveActionsByTitle.set(title, request.code);
   const originPart = request.origin ? `${displayOrigin(request.origin)} — ` : '';
-  return { title, tooltip: `${originPart}Tenant: ${request.tenant} — expires ${request.expiresAt}`, checked: false, enabled: true };
+  slot.title = title;
+  slot.tooltip = `${originPart}Tenant: ${request.tenant} — expires ${request.expiresAt}`;
+  slot.enabled = true;
+  slot.hidden = false;
+}
+
+function renderConnectedAppSlot(slot: MenuItem, app: PairedAppSummary): void {
+  const subject = app.origin ? displayOrigin(app.origin) : app.appId;
+  // Short deviceId suffix keeps the title unique (two apps of the same subject) without showing a raw UUID.
+  const title = `${subject} (${app.deviceId.slice(0, 8)})`;
+  revokeActionsByTitle.set(title, app.deviceId);
+  const lastUsedPart = app.lastUsedAt ? `last used ${app.lastUsedAt}` : 'never used';
+  const jobsPart = `${app.recentJobCount} recent job${app.recentJobCount === 1 ? '' : 's'}`;
+  slot.title = title;
+  slot.tooltip = `Tenant: ${app.tenant} — ${lastUsedPart} — ${jobsPart} — click to revoke`;
+  slot.enabled = true;
+  slot.hidden = false;
 }
 
 async function pollHealth(): Promise<void> {
@@ -228,8 +313,8 @@ async function pollHealth(): Promise<void> {
 
 async function pollPrinters(): Promise<void> {
   const connection = readRuntimeConnection();
-  const printers = connection ? await listPrinters(connection) : undefined;
-  printersSubmenu.items = printers && printers.length > 0 ? printers.map(printerMenuItem) : [NO_PRINTERS_ITEM];
+  const printers = (connection ? await listPrinters(connection) : undefined) ?? [];
+  fillSlots(printersSubmenu.items!, printers, renderPrinterSlot, 'No printers detected');
   await systray.sendAction({ type: 'update-menu', menu: buildMenu() });
 }
 
@@ -272,17 +357,30 @@ function notifyNewPairingRequests(pending: PendingPairingSummary[]): void {
 
 async function pollPairing(): Promise<void> {
   const connection = readRuntimeConnection();
-  const pending = connection ? await listPendingPairings(connection) : undefined;
+  const pending = (connection ? await listPendingPairings(connection) : undefined) ?? [];
   approveActionsByTitle = new Map();
-  if (pending && pending.length > 0) {
+  pairingSubmenu.hidden = pending.length === 0;
+  if (pending.length > 0) {
     notifyNewPairingRequests(pending);
-    pairingSubmenu.hidden = false;
-    pairingSubmenu.items = pending.map(pairingMenuItem);
   } else {
     notifiedCodes = new Set();
-    pairingSubmenu.hidden = true;
-    pairingSubmenu.items = [];
   }
+  pairingSubmenu.items!.forEach((slot, i) => {
+    const request = pending[i];
+    if (!request) {
+      slot.hidden = true;
+      return;
+    }
+    renderPairingSlot(slot, request);
+  });
+  await systray.sendAction({ type: 'update-menu', menu: buildMenu() });
+}
+
+async function pollConnectedApps(): Promise<void> {
+  const connection = readRuntimeConnection();
+  const apps = (connection ? await listPairedApps(connection) : undefined) ?? [];
+  revokeActionsByTitle = new Map();
+  fillSlots(connectedAppsSubmenu.items!, apps, renderConnectedAppSlot, 'No connected apps');
   await systray.sendAction({ type: 'update-menu', menu: buildMenu() });
 }
 
@@ -290,6 +388,7 @@ await systray.ready();
 await pollHealth();
 await pollPrinters();
 await pollPairing();
+await pollConnectedApps();
 void handleCheckForUpdates(); // background check on startup — doesn't block the tray coming up
 
 setInterval(() => {
@@ -301,6 +400,9 @@ setInterval(() => {
 setInterval(() => {
   void pollPairing();
 }, PAIRING_POLL_INTERVAL_MS);
+setInterval(() => {
+  void pollConnectedApps();
+}, CONNECTED_APPS_POLL_INTERVAL_MS);
 setInterval(() => {
   void handleCheckForUpdates();
 }, UPDATE_CHECK_INTERVAL_MS);

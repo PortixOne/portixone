@@ -55,8 +55,13 @@ Source: "staging\tray\*"; DestDir: "{app}\tray"; Flags: recursesubdirs ignorever
 Source: "kill-tray.ps1"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
-Name: "{group}\PortixOne Tray"; Filename: "{code:GetNodePath}"; Parameters: """{app}\tray\dist\index.js"""; WorkingDir: "{app}\tray"; IconFilename: "{app}\tray\assets\icon.ico"
-Name: "{userstartup}\PortixOne Tray"; Filename: "{code:GetNodePath}"; Parameters: """{app}\tray\dist\index.js"""; WorkingDir: "{app}\tray"; IconFilename: "{app}\tray\assets\icon.ico"
+; wscript.exe + launch-hidden.vbs, not node.exe directly — a shortcut to
+; node.exe can only be *minimized*, never truly hidden, so a black console
+; would flash and sit in the taskbar every login. wscript.exe is a
+; GUI-subsystem host: it shows no window of its own, and the vbs spawns
+; node.exe with window style 0 (hidden).
+Name: "{group}\PortixOne Tray"; Filename: "wscript.exe"; Parameters: """{app}\tray\launch-hidden.vbs"""; WorkingDir: "{app}\tray"; IconFilename: "{app}\tray\assets\icon.ico"
+Name: "{userstartup}\PortixOne Tray"; Filename: "wscript.exe"; Parameters: """{app}\tray\launch-hidden.vbs"""; WorkingDir: "{app}\tray"; IconFilename: "{app}\tray\assets\icon.ico"
 
 [Run]
 Filename: "{code:GetNodePath}"; Parameters: """{app}\runtime\scripts\service.install.js"""; WorkingDir: "{app}\runtime"; StatusMsg: "Installing the PortixOne Runtime service..."; Flags: runhidden waituntilterminated
@@ -67,7 +72,7 @@ Filename: "{code:GetNodePath}"; Parameters: """{app}\runtime\scripts\service.ins
 ; /VERYSILENT — tested repeatedly, and the tray never launched that way.
 ; The product goal is "operational with no further intervention" even for
 ; a silent/scripted deployment, so this is just an unconditional step.
-Filename: "{code:GetNodePath}"; Parameters: """{app}\tray\dist\index.js"""; WorkingDir: "{app}\tray"; Flags: nowait runhidden
+Filename: "wscript.exe"; Parameters: """{app}\tray\launch-hidden.vbs"""; WorkingDir: "{app}\tray"; Flags: nowait
 
 [UninstallRun]
 ; Order matters: kill the tray first so it isn't holding file handles open
