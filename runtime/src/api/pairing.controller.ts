@@ -33,6 +33,20 @@ export async function handlePairingApprove(
   writeJson(res, 200, toSummary(record, 0));
 }
 
+/** Rejects a still-pending request outright, instead of leaving the human to just ignore it until it expires on its own. */
+export async function handlePairingDeny(
+  req: IncomingMessage,
+  res: ServerResponse,
+  pairingService: PairingService,
+): Promise<void> {
+  const payload = await readJsonBody<unknown>(req);
+  const input = validatePairingApprove(payload);
+  if (!pairingService.deny(input.code)) {
+    throw new PairingNotFoundError();
+  }
+  writeJson(res, 200, { denied: true });
+}
+
 export function handlePairingStatus(res: ServerResponse, pairingService: PairingService, code: string | null): void {
   if (!code) {
     throw new PairingNotFoundError();

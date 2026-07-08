@@ -34,6 +34,7 @@ const CONNECTED_APPS_POLL_INTERVAL_MS = 15000;
 const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
 
 const OPEN_DASHBOARD = 'Open Dashboard';
+const REVIEW_IN_BROWSER = 'Review in browser…';
 const OPEN_LOGS = 'Open Logs';
 const RESTART_SERVICE = 'Restart Runtime';
 const CLOSE_TRAY = 'Close Tray';
@@ -118,20 +119,25 @@ const printersSubmenu: MenuItem = {
   items: createSlotPool(MAX_DYNAMIC_SLOTS, 'No printers detected'),
 };
 
-// Hidden until there's actually something to approve — this is the tray's
-// stand-in for the phase's "Aceptar" step (see runtime/src/pairing/).
+// Always visible, same as the other two submenus below — a submenu item
+// that starts `hidden: true` at construction has the exact same problem
+// createSlotPool's own doc comment describes for child items: the native
+// tray binary never gives it a working entry, and toggling `hidden` back to
+// false later doesn't fix that after the fact (found by testing: the JS
+// state was provably correct — logged it — but "Pairing Requests" never
+// appeared in the real menu). `hasPendingRequests` below drives the tray
+// icon's pending-vs-normal color instead of this item's own hidden flag.
 const pairingSubmenu: MenuItem = {
   title: PAIRING_HEADER,
   tooltip: 'Apps waiting to be paired with this runtime',
   checked: false,
   enabled: true,
-  hidden: true,
   items: createSlotPool(MAX_DYNAMIC_SLOTS, 'No pending requests'),
 };
+let hasPendingRequests = false;
 
-// Always visible (unlike pairingSubmenu) — this is a management view of
-// already-approved apps, not a notification, so "nothing connected yet" is
-// itself useful information rather than noise to hide.
+// A management view of already-approved apps, not a notification, so
+// "nothing connected yet" is itself useful information rather than noise to hide.
 const connectedAppsSubmenu: MenuItem = {
   title: CONNECTED_APPS_HEADER,
   tooltip: 'Apps paired with this runtime — click one to revoke its access',
@@ -158,15 +164,15 @@ let notifiedCodes = new Set<string>();
 /** True once we've either auto-opened the dashboard for first-run setup or the user opened it themselves — either way, stop offering to auto-open it again this session. */
 let dashboardOffered = false;
 
-/** Opens the local dashboard/setup page in the default browser, with the admin key in the URL so its own JS can call the API — see dashboard.controller.ts's route comment for the trust model. */
-function openDashboard(connection: { host: string; port: number; apiKey: string }): void {
-  const url = `http://${connection.host}:${connection.port}/dashboard?key=${encodeURIComponent(connection.apiKey)}`;
+/** Opens one of the runtime's local pages (dashboard, pairing approval UI) in the default browser, with the admin key in the URL so its own JS can call the API — see dashboard.controller.ts's route comment for the trust model. */
+function openLocalPage(connection: { host: string; port: number; apiKey: string }, path: string): void {
+  const url = `http://${connection.host}:${connection.port}${path}?key=${encodeURIComponent(connection.apiKey)}`;
   exec(`start "" "${url}"`);
 }
 
 function buildMenu(): Menu {
   return {
-    icon: pairingSubmenu.hidden ? iconPath : iconPendingPath,
+    icon: hasPendingRequests ? iconPendingPath : iconPath,
     title: 'PortixOne',
     tooltip: 'PortixOne Runtime',
     items: [
@@ -204,7 +210,14 @@ await systray.onClick((action: ClickEvent) => {
       dashboardOffered = true;
       const connection = readRuntimeConnection();
       if (connection) {
-        openDashboard(connection);
+        openLocalPage(connection, '/dashboard');
+      }
+      break;
+    }
+    case REVIEW_IN_BROWSER: {
+      const connection = readRuntimeConnection();
+      if (connection) {
+        openLocalPage(connection, '/pairing/approve-ui');
       }
       break;
     }
@@ -385,7 +398,7 @@ async function pollHealth(): Promise<void> {
     dashboardOffered = true;
     const connection = readRuntimeConnection();
     if (connection) {
-      openDashboard(connection);
+      openLocalPage(connection, '/dashboard');
     }
   }
 }
@@ -438,20 +451,38 @@ async function pollPairing(): Promise<void> {
   const connection = readRuntimeConnection();
   const pending = (connection ? await listPendingPairings(connection) : undefined) ?? [];
   approveActionsByTitle = new Map();
-  pairingSubmenu.hidden = pending.length === 0;
+  hasPendingRequests = pending.length > 0;
   if (pending.length > 0) {
     notifyNewPairingRequests(pending);
   } else {
     notifiedCodes = new Set();
   }
-  pairingSubmenu.items!.forEach((slot, i) => {
-    const request = pending[i];
+  const slots = pairingSubmenu.items!;
+  // Slot 0 is reserved for a link to the richer approval page (permissions,
+  // the code shown prominently to cross-check against the requesting app,
+  // Allow/Deny) — Fase 5's "beyond today's plain toast + submenu". The
+  // quick-approve entries below still work too, for when you already trust
+  // it and just want the fast path.
+  const reviewSlot = slots[0];
+  if (pending.length > 0) {
+    reviewSlot.title = REVIEW_IN_BROWSER;
+    reviewSlot.tooltip = 'Open a detailed approval view — permissions, the code to cross-check, Allow/Deny';
+    reviewSlot.enabled = true;
+  } else {
+    reviewSlot.title = 'No pending requests';
+    reviewSlot.tooltip = '';
+    reviewSlot.enabled = false;
+  }
+  reviewSlot.hidden = false;
+  for (let i = 1; i < slots.length; i += 1) {
+    const request = pending[i - 1];
+    const slot = slots[i];
     if (!request) {
       slot.hidden = true;
-      return;
+      continue;
     }
     renderPairingSlot(slot, request);
-  });
+  }
   await systray.sendAction({ type: 'update-menu', menu: buildMenu() });
 }
 

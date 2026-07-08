@@ -12,6 +12,7 @@ import type { PairingService } from '../pairing/pairing.service.js';
 import type { MetricsService } from '../metrics/metrics.service.js';
 import { handleHealth } from './health.controller.js';
 import { handleDashboard, handleSetDefaultPrinter } from './dashboard.controller.js';
+import { handlePairingApprovalUI } from './pairing-ui.controller.js';
 import { handlePrint } from './print.controller.js';
 import { handleGetPrinter, handleListPrinters } from './printers.controller.js';
 import { handleCancelJob, handleGetJobs } from './jobs.controller.js';
@@ -20,6 +21,7 @@ import {
   handleListPairings,
   handleListPendingPairings,
   handlePairingApprove,
+  handlePairingDeny,
   handlePairingRequest,
   handlePairingRevoke,
   handlePairingStatus,
@@ -107,6 +109,11 @@ export function createApiServer({
         return;
       }
 
+      if (req.method === 'GET' && pathname === '/pairing/approve-ui') {
+        handlePairingApprovalUI(res);
+        return;
+      }
+
       if (req.method === 'POST' && pathname === '/config/default-printer') {
         const context = assertAuthenticated(req, auth, adminKey());
         assertAdmin(context);
@@ -161,6 +168,13 @@ export function createApiServer({
         const context = assertAuthenticated(req, auth, adminKey());
         assertAdmin(context);
         await handlePairingApprove(req, res, pairingService);
+        return;
+      }
+
+      if (req.method === 'POST' && pathname === '/pairing/deny') {
+        const context = assertAuthenticated(req, auth, adminKey());
+        assertAdmin(context);
+        await handlePairingDeny(req, res, pairingService);
         return;
       }
 

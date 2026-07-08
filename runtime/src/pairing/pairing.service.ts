@@ -90,6 +90,17 @@ export class PairingService {
     return this.store.remove(deviceId);
   }
 
+  /** Rejects a still-pending request outright, instead of just letting it sit until it expires on its own. */
+  deny(code: string): boolean {
+    this.evictStale();
+    const entry = this.pending.get(code);
+    if (!entry || entry.approved) {
+      return false;
+    }
+    this.pending.delete(code);
+    return true;
+  }
+
   /** Bumps a paired app's last-used timestamp — called on every authenticated request (see auth.service.ts). */
   touch(deviceId: string): void {
     this.store.touchLastUsed(deviceId);
