@@ -21,7 +21,7 @@ npm install @portixone/sdk
 ```js
 import { Portix } from "@portixone/sdk";
 
-const portix = new Portix();
+const portix = new Portix({ appId: "my-app", tenant: "default" });
 
 await portix.connect();
 
@@ -30,9 +30,9 @@ await portix.print({
 });
 ```
 
-The printer prints. That's it.
+The printer prints. That's it. `appId`/`tenant` are your integration's identity — the first `connect()` pairs automatically (instant from `localhost`/your own LAN, otherwise it waits for a human to approve it from the PortixOne tray's "Pairing Requests" menu), and every `connect()` after that reuses the same approval.
 
-`connect()` uses the local-dev defaults (`localhost`, the runtime's default port, and the `dev-local-key` API key from `runtime/.env.example`) unless you override them:
+`connect()` uses the local-dev defaults (`localhost`, the runtime's default port) unless you override them, or pass an explicit `apiKey` to skip pairing entirely (e.g. the runtime's own admin key from `runtime/.env.example`):
 
 ```js
 const portix = new Portix({ apiKey: "...", host: "127.0.0.1", port: 17321 });
@@ -70,16 +70,23 @@ Going to production is a one-word change: `mode: "runtime"` (or just remove the 
 
 ## Pairing — for multi-tenant SaaS integrations
 
-If you're building a product other people's businesses install PortixOne for (like Kubia), don't share the runtime's admin key with your app. Instead, pair each installation once:
+Don't share the runtime's admin key with your app — pass `tenant`/`appId` instead, and `connect()` handles pairing on its own the first time:
 
 ```js
 const portix = new Portix({ tenant: "acme-cafe", appId: "kubia" });
 await portix.connect();
+// Resolves once paired — instant from localhost/your own LAN, otherwise it
+// waits for a human to approve "kubia" from the PortixOne tray's
+// "Pairing Requests" menu. From here on, print()/getJobs()/cancel() are
+// scoped to this tenant/app, and later connect() calls skip pairing again.
+```
 
+If you're building a product other people's businesses install PortixOne for (like Kubia) and want to show the pairing code yourself instead of just waiting on `connect()` — e.g. to display it in your own UI — call `pair()` directly:
+
+```js
 const { code } = await portix.pair();
-// Show `code` (e.g. "M8K4-LPQ9") to whoever is at the machine — they approve
-// it locally on the runtime. No tray UI for this yet; see the runtime's
-// `POST /pairing/approve` (admin-key only) in the meantime.
+// Show `code` (e.g. "M8K4-LPQ9") to whoever is at the machine yourself,
+// however fits your product, instead of blocking on connect().
 
 portix.on("paired", ({ deviceId, permissions }) => {
   // From here on, print()/getJobs()/cancel() are scoped to this tenant/app —
@@ -87,9 +94,9 @@ portix.on("paired", ({ deviceId, permissions }) => {
 });
 ```
 
-`tenant` and `appId` are required to call `pair()` — they're how the runtime tells your integration apart from every other app paired to the same machine.
+`tenant` and `appId` are required for both paths — they're how the runtime tells your integration apart from every other app paired to the same machine.
 
-**No approval needed from `localhost`, `127.0.0.1`, or a private-network origin (`192.168.x.x`, `10.x.x.x`, `172.16-31.x.x`)** — `pair()` resolves immediately with no human involved, since the browser's `Origin` header already proves it's this developer's own machine or LAN. This only kicks in for a real public domain, where the normal approve flow above still applies.
+**No approval needed from `localhost`, `127.0.0.1`, or a private-network origin (`192.168.x.x`, `10.x.x.x`, `172.16-31.x.x`)** — pairing resolves immediately with no human involved, since the browser's `Origin` header already proves it's this developer's own machine or LAN. This only kicks in for a real public domain, where the tray approval above still applies. Note this is Origin-header-based: a plain Node.js script (no browser) won't send one, so it always needs that one-time tray approval regardless of network.
 
 ## API reference
 
@@ -98,15 +105,15 @@ portix.on("paired", ({ deviceId, permissions }) => {
 | Option | Type | Default | Description |
 |---|---|---|---|
 | `mode` | `"runtime" \| "mock"` | `"runtime"` | `"mock"` needs no runtime and no printer |
-| `apiKey` | `string` | `"dev-local-key"` | Must match the runtime's `PORTIX_LOCAL_API_KEY` — only needed until `pair()` is used |
+| `apiKey` | `string` | — | Skips pairing entirely — must match the runtime's `PORTIX_LOCAL_API_KEY` (or a previously-issued token) |
 | `host` | `string` | `"127.0.0.1"` | Runtime host |
 | `port` | `number` | `17321` | Runtime port |
-| `appId` | `string` | — | Your integration's identity. Required for `pair()` |
-| `tenant` | `string` | — | The specific business/customer this connection is for. Required for `pair()` |
+| `appId` | `string` | — | Your integration's identity. Required for `connect()` to pair automatically, and for `pair()` |
+| `tenant` | `string` | — | The specific business/customer this connection is for. Required for `connect()` to pair automatically, and for `pair()` |
 
 ### `portix.connect(): Promise<void>`
 
-Verifies the runtime is reachable (skipped entirely in mock mode). Throws if it isn't — call this before any other method.
+Verifies the runtime is reachable (skipped entirely in mock mode) — throws a `RuntimeUnreachableError` if it isn't installed or isn't running (message includes the download link; in a browser, also best-effort opens [portix.one/download](https://portix.one/download) itself via `window.open()` — a no-op if `connect()` wasn't called from inside a user gesture like a click handler, since popup blockers require that). Then, unless you passed an explicit `apiKey`: if the current credential doesn't work yet, pairs automatically using `appId`/`tenant` (instant from `localhost`/your own LAN, otherwise blocks until a human approves it from the PortixOne tray's "Pairing Requests" menu, throwing if that never happens within the pairing code's TTL). A previously-approved pairing is remembered in the browser (`localStorage`) so this only blocks once per `appId`/`tenant`, not on every `connect()` — Node has no persistence, so a script re-pairs on every run.
 
 ### `portix.disconnect(): Promise<void>`
 
@@ -142,7 +149,7 @@ Cancels a job that hasn't started printing yet. Throws `JOB_NOT_CANCELLABLE` if 
 
 ### `portix.pair(): Promise<{ code, expiresAt }>`
 
-Starts pairing (see above). Requires `tenant`/`appId` in the constructor options.
+Starts pairing and returns the code immediately instead of waiting for approval — for showing it in your own UI rather than letting `connect()` block on it (see above). Requires `tenant`/`appId` in the constructor options.
 
 ### `portix.getMetrics(): Promise<RuntimeMetrics>`
 

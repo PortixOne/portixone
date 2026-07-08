@@ -15,7 +15,7 @@ No printer or runtime handy? Skip straight to [mock mode](#troubleshooting) belo
 ```js
 import { Portix } from "@portixone/sdk";
 
-const portix = new Portix();
+const portix = new Portix({ appId: "my-app", tenant: "default" });
 
 await portix.connect();
 
@@ -24,12 +24,12 @@ await portix.print({
 });
 ```
 
-The printer prints. That's it. See [`examples/basic-print`](../examples/basic-print) for a runnable, standalone version of this.
+The printer prints. That's it. `appId`/`tenant` identify your integration to the runtime — the first `connect()` pairs automatically (instant if you're on `localhost`/your own LAN, otherwise it waits for a human to approve it from the PortixOne tray's "Pairing Requests" menu). Every `connect()` after that reuses the same approval — no re-pairing. See [`examples/basic-print`](../examples/basic-print) for a runnable, standalone version of this.
 
 ## API reference
 
-- **`new Portix(options?)`** — `mode` (`"runtime"` default, or `"mock"`), `apiKey`, `host`, `port`.
-- **`portix.connect()`** — verifies the runtime is reachable. Call before `print()`/`getStatus()`.
+- **`new Portix(options?)`** — `mode` (`"runtime"` default, or `"mock"`), `apiKey`, `host`, `port`, `appId`, `tenant`.
+- **`portix.connect()`** — verifies the runtime is reachable, and pairs automatically using `appId`/`tenant` if not authorized yet. Call before `print()`/`getStatus()`.
 - **`portix.print({ content, printerName?, copies? })`** — sends a print job, returns `{ jobId, status, message? }`.
 - **`portix.getStatus()`** — returns `{ status, version, defaultPrinter? }`.
 
@@ -44,9 +44,13 @@ const portix = new Portix({ mode: "mock" });
 
 **`Call portix.connect() before using the client`** — you called `print()`/`getStatus()` without awaiting `connect()` first.
 
-**`INVALID_API_KEY`** — the `apiKey` you passed doesn't match the runtime's `PORTIX_LOCAL_API_KEY` (default `dev-local-key`, see `runtime/.env.example`).
+**`connect()` reached the Runtime but has no valid credential`** — you called `connect()` without `appId`/`tenant` and without a working `apiKey`. Pass `{ appId, tenant }` so it can pair automatically, or pass the runtime's own admin `apiKey` directly (see `runtime/.env.example`'s `PORTIX_LOCAL_API_KEY`) if you're bypassing pairing on purpose.
 
-**`connect()` throws / runtime unreachable** — the Portix Runtime isn't running, or `host`/`port` don't match it. Start it with `npm run dev` in [`runtime/`](../runtime) (default `127.0.0.1:17321`), or switch to mock mode.
+**`connect()` hangs, then throws "Pairing request ... expired waiting for approval"`** — you're not on `localhost`/your own LAN (those auto-approve instantly), so a human needs to open the PortixOne tray, go to "Pairing Requests", and approve your app before `connect()` can finish. Call `connect()` again afterward.
+
+**`RuntimeUnreachableError` / "Could not reach the Portix Runtime"** — it isn't installed or isn't running, or `host`/`port` don't match it. The error message already links to [portix.one/download](https://portix.one/download) — in a browser, `connect()` also tries to open that page for you automatically (won't work if it's not inside a click handler; browsers block that). Or switch to mock mode.
+
+**`INVALID_API_KEY`** — you passed an explicit `apiKey` that doesn't match the runtime's admin key (`PORTIX_LOCAL_API_KEY`, see `runtime/.env.example`), or a previously-approved token was revoked. Drop `apiKey` and pass `{ appId, tenant }` instead to let `connect()` pair again.
 
 **`PRINTER_NOT_FOUND`** — no `printerName` was given and no default printer is configured (`PORTIX_DEFAULT_PRINTER` in `runtime/.env`), or the name doesn't match `Get-Printer` exactly.
 

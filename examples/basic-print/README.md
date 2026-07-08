@@ -22,7 +22,7 @@ const portix = new Portix({ mode: "mock" });
 to:
 
 ```js
-const portix = new Portix();
+const portix = new Portix({ appId: "basic-print", tenant: "default" });
 ```
 
-Run `npm start` again — same code, now it prints on real hardware.
+Run `npm start` again. The first run pairs this app with the runtime — since this is a plain Node script (no browser `Origin` header), that means opening the PortixOne tray's "Pairing Requests" menu and approving it once; `npm start` will be waiting until you do. Every run after that reuses the same approval and prints straight away.

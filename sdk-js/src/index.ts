@@ -1,4 +1,5 @@
 export { Portix } from './portix.js';
+export { RuntimeUnreachableError } from './client.adapter.js';
 export type {
   PortixOptions,
   PortixClientOptions,

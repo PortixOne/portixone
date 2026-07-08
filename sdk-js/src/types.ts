@@ -29,9 +29,9 @@ export interface PortixOptions {
    * receipt instead, so a stranger can try the SDK in one command.
    */
   mode?: 'runtime' | 'mock';
-  /** This integration's identity with the runtime. Required to call `pair()`. */
+  /** This integration's identity with the runtime. Required for `connect()` to pair automatically, and to call `pair()` directly. */
   appId?: string;
-  /** The specific business/customer this connection is on behalf of. Required to call `pair()`. */
+  /** The specific business/customer this connection is on behalf of. Required for `connect()` to pair automatically, and to call `pair()` directly. */
   tenant?: string;
 }
 

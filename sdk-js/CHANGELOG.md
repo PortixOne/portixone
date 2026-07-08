@@ -1,5 +1,15 @@
 # @portixone/sdk
 
+## 0.3.3
+
+- A missing/unreachable Runtime now throws a clear `RuntimeUnreachableError` ("Could not reach the Portix Runtime at ... — it's probably not installed or not running. Download it from https://portix.one/download and try again.") instead of a raw `TypeError: fetch failed`. In a browser, `connect()` also best-effort opens the download page itself via `window.open()` — silently a no-op where popup blockers require a user gesture, which is why the message always states the URL too. `RuntimeUnreachableError` is exported for apps that want to handle it with their own UI instead.
+
+## 0.3.2
+
+- `connect()` now pairs automatically when it isn't authorized yet, using `appId`/`tenant` from the constructor — no separate `.pair()` call needed for the common case. Instant from `localhost`/your own LAN (the runtime's existing auto-trust); otherwise blocks until a human approves it from the PortixOne tray's "Pairing Requests" menu, throwing a clear error if the pairing code expires first. Skipped entirely if you pass an explicit `apiKey`. Found by actually tracing the documented Quickstart against a fresh install: it silently failed with `INVALID_API_KEY` on `print()` because pairing was never mentioned in it at all.
+- A successful pairing is now persisted (browser `localStorage` only) so it's asked for once per `appId`/`tenant`, not on every `connect()`/page load. `pair()`'s existing background-poll path persists it too, for the same reason.
+- `pair()` is unchanged (still returns the code immediately for showing it in your own UI) — it's now the "I want to control the approval UX myself" alternative to `connect()`'s default auto-pairing, not the only way to pair.
+
 ## 0.3.1
 
 - `print()` in mock mode now returns `preview` on the result — the rendered receipt text, not just a console.log side effect. Lets a developer render the mock preview in their own UI instead of only the terminal.

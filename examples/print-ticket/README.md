@@ -44,8 +44,10 @@ const portix = new Portix({ mode: "mock" });
 to:
 
 ```js
-const portix = new Portix();
+const portix = new Portix({ appId: "print-ticket", tenant: "default" });
 ```
+
+Run it again. The first run pairs this app with the runtime — since this is a plain Node script (no browser `Origin` header), open the PortixOne tray's "Pairing Requests" menu and approve it; the script will be waiting until you do. Every run after that reuses the same approval and prints straight away.
 
 Run `npm start` again — same ticket, now on real hardware.
 

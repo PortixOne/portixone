@@ -18,6 +18,20 @@ interface RequestOptions {
   authenticated?: boolean;
 }
 
+/**
+ * Thrown when `fetch()` itself never got a response — as opposed to a
+ * response we didn't like (handled separately below). Distinct from a
+ * generic `Error` so callers (see `Portix.connect()`) can reliably tell
+ * "nothing is listening at this host:port" apart from every other failure
+ * mode, instead of guessing from a message string.
+ */
+export class RuntimeUnreachableError extends Error {
+  constructor(baseUrl: string) {
+    super(`Could not reach the Portix Runtime at ${baseUrl} — it's probably not installed or not running.`);
+    this.name = 'RuntimeUnreachableError';
+  }
+}
+
 export class ClientAdapter {
   private readonly baseUrl: string;
   private apiKey: string;
@@ -84,11 +98,16 @@ export class ClientAdapter {
       headers[API_KEY_HEADER] = this.apiKey;
     }
 
-    const response = await fetch(`${this.baseUrl}${path}`, {
-      method,
-      headers,
-      body: body !== undefined ? JSON.stringify(body) : undefined,
-    });
+    let response: Response;
+    try {
+      response = await fetch(`${this.baseUrl}${path}`, {
+        method,
+        headers,
+        body: body !== undefined ? JSON.stringify(body) : undefined,
+      });
+    } catch {
+      throw new RuntimeUnreachableError(this.baseUrl);
+    }
 
     // A runtime error is always JSON, but a wrong host/port can just as
     // easily hit a captive portal, a reverse proxy, or nothing at all —

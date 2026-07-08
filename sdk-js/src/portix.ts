@@ -1,4 +1,4 @@
-import { ClientAdapter } from './client.adapter.js';
+import { ClientAdapter, RuntimeUnreachableError } from './client.adapter.js';
 import { PortixEventBus } from './event-bus.js';
 import { RuntimeSocket } from './runtime-socket.js';
 import { renderMockReceipt } from './mock-preview.js';
@@ -18,13 +18,41 @@ import type {
 const DEFAULT_LOCAL_API_KEY = 'dev-local-key';
 const MOCK_VERSION = 'mock';
 const PAIRING_POLL_INTERVAL_MS = 1500;
+const TOKEN_STORAGE_PREFIX = 'portix:token:';
+const DOWNLOAD_URL = 'https://portix.one/download';
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function tokenStorageKey(tenant: string, appId: string): string {
+  return `${TOKEN_STORAGE_PREFIX}${tenant}:${appId}`;
+}
+
+// Node has no localStorage — `typeof` never throws on an undeclared global,
+// so this degrades to "never persisted" there instead of a ReferenceError.
+// A CLI script re-pairing on every run is an acceptable gap for now; a page
+// reload doing that would not be.
+function loadPersistedToken(tenant: string, appId: string): string | undefined {
+  if (typeof localStorage === 'undefined') {
+    return undefined;
+  }
+  return localStorage.getItem(tokenStorageKey(tenant, appId)) ?? undefined;
+}
+
+function persistToken(tenant: string, appId: string, token: string): void {
+  if (typeof localStorage === 'undefined') {
+    return;
+  }
+  localStorage.setItem(tokenStorageKey(tenant, appId), token);
+}
 
 /**
  * The PortixOne SDK entry point.
  *
  * ```ts
- * const portix = new Portix();
- * await portix.connect();
+ * const portix = new Portix({ appId: "my-app", tenant: "default" });
+ * await portix.connect(); // pairs automatically the first time — see connect()
  * await portix.print({ content: "Hello PortixOne!" });
  * ```
  *
@@ -41,17 +69,96 @@ export class Portix {
     this.mode = options.mode ?? 'runtime';
   }
 
+  /**
+   * Verifies the runtime is reachable and, if this app isn't authorized yet,
+   * pairs automatically — no separate `.pair()` call needed for the common
+   * case. Requires `tenant`/`appId` in the constructor so the pairing
+   * request can identify who's asking; skipped entirely if you passed an
+   * explicit `apiKey` (that's a deliberate credential, not something to
+   * silently replace). A previously-approved pairing is remembered (browser
+   * `localStorage` only, see `loadPersistedToken`) so this only blocks on a
+   * human once per app/tenant, not on every `connect()`.
+   */
   async connect(): Promise<void> {
     if (this.mode === 'mock') {
       return;
     }
+    const { tenant, appId } = this.options;
+    const persistedToken = tenant && appId ? loadPersistedToken(tenant, appId) : undefined;
     const adapter = new ClientAdapter({
-      apiKey: this.options.apiKey ?? DEFAULT_LOCAL_API_KEY,
+      apiKey: this.options.apiKey ?? persistedToken ?? DEFAULT_LOCAL_API_KEY,
       host: this.options.host,
       port: this.options.port,
     });
-    await adapter.getStatus();
+    try {
+      await adapter.getStatus();
+    } catch (error) {
+      if (error instanceof RuntimeUnreachableError) {
+        // Best-effort: browsers only let `window.open()` bypass the popup
+        // blocker when it's a direct result of a user gesture (e.g. this
+        // `connect()` call happening inside a button's click handler) —
+        // silently does nothing otherwise, which is why the download URL is
+        // always in the thrown message too, not just this side effect.
+        if (typeof window !== 'undefined') {
+          window.open(DOWNLOAD_URL, '_blank');
+        }
+        // Enrich in place rather than wrapping in a plain Error, so a caller
+        // doing `instanceof RuntimeUnreachableError` still works.
+        error.message = `${error.message} Download it from ${DOWNLOAD_URL} and try again.`;
+        throw error;
+      }
+      throw error;
+    }
     this.adapter = adapter;
+
+    if (this.options.apiKey) {
+      return;
+    }
+    if (await this.isAuthorized(adapter)) {
+      return;
+    }
+    if (!tenant || !appId) {
+      throw new Error(
+        'portix.connect() reached the Runtime but has no valid credential — pass { tenant, appId } to `new Portix(...)` so it can pair automatically, or pass { apiKey } if you already have one.',
+      );
+    }
+    await this.autoPair(adapter, tenant, appId);
+  }
+
+  /** A cheap authenticated call, used only to answer "does our current credential actually work?" */
+  private async isAuthorized(adapter: ClientAdapter): Promise<boolean> {
+    try {
+      await adapter.listPrinters();
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Requests pairing and blocks until it's approved — instantly for a
+   * localhost/private-network origin (the runtime auto-trusts those), or
+   * until a human approves it from the PortixOne tray's Pairing Requests
+   * menu otherwise. Distinct from the public `pair()` below, which returns
+   * the code immediately for callers (like a multi-tenant SaaS) that want to
+   * show it to a human themselves instead of waiting here.
+   */
+  private async autoPair(adapter: ClientAdapter, tenant: string, appId: string): Promise<void> {
+    const result = await adapter.requestPairing(tenant, appId);
+    const expiresAtMs = new Date(result.expiresAt).getTime();
+    while (Date.now() < expiresAtMs) {
+      await sleep(PAIRING_POLL_INTERVAL_MS);
+      const status = await adapter.getPairingStatus(result.code).catch(() => undefined);
+      if (status?.status === 'approved' && status.token) {
+        adapter.setCredential(status.token);
+        persistToken(tenant, appId, status.token);
+        this.events.emit('paired', { deviceId: status.deviceId, permissions: status.permissions });
+        return;
+      }
+    }
+    throw new Error(
+      `Pairing request for "${appId}" expired waiting for approval — open the PortixOne tray's "Pairing Requests" menu and approve it, then call connect() again.`,
+    );
   }
 
   /** Ends this SDK session: stops any pairing poll, closes the live-events socket, and drops the connection. */
@@ -166,6 +273,9 @@ export class Portix {
     if (status?.status === 'approved' && status.token) {
       this.stopPairingPoll();
       adapter.setCredential(status.token);
+      if (this.options.tenant && this.options.appId) {
+        persistToken(this.options.tenant, this.options.appId, status.token);
+      }
       this.events.emit('paired', { deviceId: status.deviceId, permissions: status.permissions });
     }
   }

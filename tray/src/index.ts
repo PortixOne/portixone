@@ -54,8 +54,30 @@ const INSTALL_UPDATE_NOW = 'Install Update Now';
 // pairings/connected apps can show at once — generous for what any single
 // runtime realistically has; raise it if that stops being true.
 const MAX_DYNAMIC_SLOTS = 20;
-function createSlotPool(count: number): MenuItem[] {
-  return Array.from({ length: count }, () => ({ title: '', tooltip: '', checked: false, enabled: true, hidden: true }));
+/**
+ * Slot 0 must already be visible when this pool is built — not just once a
+ * poll runs. systray2 sends its very first payload (at `ready()`) before any
+ * of our polls ever execute, and that first payload is what the native
+ * binary builds its real Win32 submenu handle from. A submenu whose entire
+ * initial item list is hidden never gets a working flyout, even after a
+ * later `update-menu` flips a slot visible — found by testing: the arrow
+ * rendered, but neither hover nor an actual click ever opened it. It's fine
+ * if the first poll immediately re-hides slot 0 again afterward (Pairing
+ * Requests does exactly that when there's nothing pending) — the handle
+ * only needs to have existed once, at construction.
+ */
+function createSlotPool(count: number, placeholderTitle: string): MenuItem[] {
+  const slots: MenuItem[] = Array.from({ length: count }, () => ({
+    title: '',
+    tooltip: '',
+    checked: false,
+    enabled: true,
+    hidden: true,
+  }));
+  slots[0].title = placeholderTitle;
+  slots[0].enabled = false;
+  slots[0].hidden = false;
+  return slots;
 }
 /** Fills a submenu's fixed slot pool from `data`, showing `emptyTitle` in the first slot when there's nothing to show. */
 function fillSlots<T>(slots: MenuItem[], data: T[], render: (slot: MenuItem, item: T) => void, emptyTitle: string): void {
@@ -92,7 +114,7 @@ const printersSubmenu: MenuItem = {
   tooltip: 'Printers detected by the runtime',
   checked: false,
   enabled: true,
-  items: createSlotPool(MAX_DYNAMIC_SLOTS),
+  items: createSlotPool(MAX_DYNAMIC_SLOTS, 'No printers detected'),
 };
 
 // Hidden until there's actually something to approve — this is the tray's
@@ -103,7 +125,7 @@ const pairingSubmenu: MenuItem = {
   checked: false,
   enabled: true,
   hidden: true,
-  items: createSlotPool(MAX_DYNAMIC_SLOTS),
+  items: createSlotPool(MAX_DYNAMIC_SLOTS, 'No pending requests'),
 };
 
 // Always visible (unlike pairingSubmenu) — this is a management view of
@@ -114,7 +136,7 @@ const connectedAppsSubmenu: MenuItem = {
   tooltip: 'Apps paired with this runtime — click one to revoke its access',
   checked: false,
   enabled: true,
-  items: createSlotPool(MAX_DYNAMIC_SLOTS),
+  items: createSlotPool(MAX_DYNAMIC_SLOTS, 'No connected apps'),
 };
 
 // Two-step by design, not fully silent: a background check flips this item
@@ -230,7 +252,15 @@ async function handleRevoke(deviceId: string): Promise<void> {
   await pollConnectedApps(); // refresh immediately so the revoked entry disappears without waiting for the next tick
 }
 
-async function handleCheckForUpdates(): Promise<void> {
+/**
+ * `manual` fires a toast with the result — on by default for the tray's own
+ * "Check for Updates" click, off for the silent background check (startup +
+ * every `UPDATE_CHECK_INTERVAL_MS`), since nobody's watching that one and a
+ * toast every few hours saying "you're up to date" would just be noise.
+ * Without this, the only feedback was the menu item's tooltip — invisible
+ * unless you happened to hover it, so a click looked like it did nothing.
+ */
+async function handleCheckForUpdates(manual = true): Promise<void> {
   updateItem.title = 'Checking for updates…';
   updateItem.enabled = false;
   await systray.sendAction({ type: 'update-item', item: updateItem });
@@ -240,12 +270,30 @@ async function handleCheckForUpdates(): Promise<void> {
     pendingDownloadUrl = result.downloadUrl;
     updateItem.title = INSTALL_UPDATE_NOW;
     updateItem.tooltip = `v${result.latestVersion} is available — click to download and install (will restart the Runtime)`;
+    if (manual) {
+      notifier.notify({
+        title: 'Update available',
+        message: `${result.latestVersion} is ready — click "Install Update Now" in the tray to install it.`,
+        icon: iconPath,
+        appID: 'Portix.One',
+        sound: true,
+      });
+    }
   } else {
     pendingDownloadUrl = undefined;
     updateItem.title = CHECK_FOR_UPDATES;
     updateItem.tooltip = result.checked
       ? `You're on the latest version (v${APP_VERSION})`
       : `Could not check for updates${result.error ? `: ${result.error}` : ''}`;
+    if (manual) {
+      notifier.notify({
+        title: result.checked ? "You're up to date" : 'Could not check for updates',
+        message: result.checked ? `Portix.One Runtime v${APP_VERSION} is the latest version.` : (result.error ?? 'Unknown error'),
+        icon: iconPath,
+        appID: 'Portix.One',
+        sound: false,
+      });
+    }
   }
   updateItem.enabled = true;
   await systray.sendAction({ type: 'update-item', item: updateItem });
@@ -389,7 +437,7 @@ await pollHealth();
 await pollPrinters();
 await pollPairing();
 await pollConnectedApps();
-void handleCheckForUpdates(); // background check on startup — doesn't block the tray coming up
+void handleCheckForUpdates(false); // background check on startup — doesn't block the tray coming up, and stays silent
 
 setInterval(() => {
   void pollHealth();
@@ -404,5 +452,5 @@ setInterval(() => {
   void pollConnectedApps();
 }, CONNECTED_APPS_POLL_INTERVAL_MS);
 setInterval(() => {
-  void handleCheckForUpdates();
+  void handleCheckForUpdates(false);
 }, UPDATE_CHECK_INTERVAL_MS);
