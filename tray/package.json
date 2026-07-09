@@ -10,7 +10,7 @@
     "start": "node dist/index.js",
     "dev": "tsx src/index.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "generate-icon": "node scripts/generate-placeholder-icon.js"
+    "generate-icon": "node scripts/generate-icon.js"
   },
   "dependencies": {
     "@portixone/protocol": "*",
@@ -21,6 +21,8 @@
   "devDependencies": {
     "@types/node": "^20.14.0",
     "@types/node-notifier": "^8.0.5",
+    "png-to-ico": "^3.0.2",
+    "sharp": "^0.35.3",
     "tsx": "^4.16.0",
     "typescript": "^5.5.0"
   }
