@@ -36,7 +36,7 @@ npm install @portixone/sdk
 ```js
 import { Portix } from "@portixone/sdk";
 
-const portix = new Portix();
+const portix = new Portix({ appId: "my-app", tenant: "default" });
 
 await portix.connect();
 
@@ -45,7 +45,7 @@ await portix.print({
 });
 ```
 
-The printer prints. That's it.
+With the [Runtime installed](https://portix.one/download) and running, the printer prints — that's it. `appId`/`tenant` are your integration's identity: the first `connect()` pairs automatically (instant from a browser on `localhost`, otherwise it waits once for approval in the PortixOne tray's "Pairing Requests" menu), and every `connect()` after reuses it.
 
 No printer or runtime handy? Add `{ mode: "mock" }` and try the exact same code — no setup at all:
 
