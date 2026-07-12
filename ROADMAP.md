@@ -70,9 +70,11 @@ A landing built to be *used* within minutes, not one built to sell. Full section
 
 Quick Start, SDK reference, Runtime reference, API reference, Examples, FAQ, Troubleshooting, Roadmap, Changelog. Current state and gaps, detailed in [MILESTONE_4.md](MILESTONE_4.md)'s Developer Portal epic: docs today are scattered across per-package READMEs; examples exist and actually run (`basic-print`, `kubia-demo`, `stress-test`); no unified docs site, API reference, FAQ, or changelog yet.
 
-## FASE 10 — First External Developer 🔜
+## FASE 10 — First External Developer 🟡
 
 Someone with zero contact with the founder gets a real print working using only the documentation — they don't message, they don't ask. Metric: **TTFP < 5 minutes**, ideal **< 2 minutes**. The `kubia-demo` audit ([MILESTONE_4.md](MILESTONE_4.md)'s Kubia epic — confirmed zero PortixOne-internal code leaking into a consumer) is the last internal check before a true outside stranger attempts this for real.
+
+**Developer-Zero audit (2026-07-11)**: walked the official docs as a stranger would, with a real published `npm install @portixone/sdk` in a clean project. The mock quickstart works copy-paste (exit 0). Found and fixed a real blocker: the root README — and the `LANDING.md` hero — led with `new Portix()`, which only authenticates when the runtime runs with the dev-convention key (`dev-local-key`). A real installer-based install generates a random admin key, so `connect()` would throw for an actual external developer following the docs; the dev machine masked it because its own runtime uses `dev-local-key` (a "works on my machine" doc trap). Both now use the `new Portix({ appId, tenant })` auto-pair path that works against any install (branch `fase-10-onboarding`), plus a mock-preview box-alignment fix. **Still open before this fase closes**: a real physical print on hardware and a clean-machine install test (both hardware-gated — see [MILESTONE_4.md](MILESTONE_4.md)'s Validation epic), the live `portix.dev` landing needs the same snippet fix, and an SDK republish to ship the mock-preview fix — then an actual outside stranger attempts TTFP for real.
 
 ## FASE 11 — First Paying Customer 🔜
 
