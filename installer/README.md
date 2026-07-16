@@ -108,6 +108,19 @@ gh release create runtime-v0.1.1 \
 # add --prerelease for an internal/pilot build
 ```
 
+**5. Always verify the release actually published.** Uploading ~60 MB of assets takes minutes, and if
+`gh release create` is interrupted it leaves the release **as a draft** — created, tagged, partially
+uploaded, and invisible to everyone. This is not hypothetical: it is how `v0.0.1-alpha` sat as a
+draft with zero assets, and it happened again while publishing `runtime-v0.1.1`. A draft is invisible
+to the updater and to the download link, so the failure is silent.
+
+```bash
+gh release view runtime-v0.1.1 --json isDraft,isPrerelease,assets
+# isDraft must be false, and all four assets must be listed.
+gh release edit runtime-v0.1.1 --draft=false --prerelease   # if it got stuck
+gh release upload runtime-v0.1.1 <missing-asset> --clobber  # if an asset is missing
+```
+
 **Intended end state:** a product-owned signed manifest at
 `https://releases.portix.one/runtime/<channel>.json`, so update discovery doesn't depend on GitHub's
 release feed at all. The GitHub filtering above is the transitional implementation; swapping it
