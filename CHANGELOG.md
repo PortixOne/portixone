@@ -2,6 +2,25 @@
 
 A running log of what actually shipped and got validated — not a promise, a record. Package-level changes are also tracked per-package: [`sdk-js/CHANGELOG.md`](sdk-js/CHANGELOG.md), [`packages/protocol/CHANGELOG.md`](packages/protocol/CHANGELOG.md), [`packages/shared/CHANGELOG.md`](packages/shared/CHANGELOG.md).
 
+## 2026-07-16 — Print-path fixes and the licensing layer
+
+The first Runtime installer release. Two of the fixes below were found by printing on real hardware, not by reading code — and both had to land before anything could be published.
+
+### Fixed
+
+- **Accented text printed as mojibake.** `EscposBuilder.text()` encoded content as UTF-8, but the printer reads one byte per character against its selected code table, so `á é í ó ú`, `ñ Ñ`, and `¿ ¡ °` each arrived as two bytes and printed as two garbage glyphs. Plain ASCII looked fine, which is why it survived earlier testing — and why Spanish receipts were unusable. The builder now emits `ESC t 16` (WPC1252) after `INIT` and encodes as `latin1`. Confirmed on a SICAR WL88S.
+- **A disconnected printer silently reported success.** With the printer unplugged, `Get-Printer` still reported `PrinterStatus=Normal` (the Generic / Text Only driver lies once a USB device is gone), so the pre-flight passed, the job reported `completed`, and the bytes sat in the spooler and printed late on reconnect. `Win32_Printer.WorkOffline` is now joined into detection and mapped to `Offline`, so `PrinterOfflineError` is raised before anything is queued.
+- Malformed request bodies returned HTTP 500 instead of 400.
+- Print jobs are now bounded: `copies` ≤ 100 and `content` ≤ 100,000 characters. Both were unbounded.
+- Pairing codes are generated with `crypto.randomInt` instead of `Math.random()` — a pending code is enough to retrieve its token from the unauthenticated `GET /pairing/status`.
+- `StorageRepository` writes are atomic (serialize → temp → fsync → rename, with orphan sweep and a Windows/OneDrive-safe retry). A failed write can no longer destroy the last valid file.
+
+### Added
+
+- **Licensing layer (runtime side).** Offline ES256 license-token verification with a fail-closed keyring (production trusts only the production keyring and refuses to boot if a development key is present), the grace/posture state machine (72h technical grace counted from token expiry; commercial grace kept separate), a best-effort 12h heartbeat that only honors an authenticated revocation over TLS, one-time installation-token exchange, and an admin-only `GET /license`. **Licensing never gates printing** — the print layer doesn't even import it, and an architecture test freezes that. Design and terms: [LICENSING_PLAN.md](LICENSING_PLAN.md), [docs/licensing/](docs/licensing/).
+- Pricing settled as Free / Creator ($24/mo or $240/yr) / Founder ($240 one-time, 100 seats).
+- A test runner (`node --test` via `tsx`, zero new dependencies). 100 tests.
+
 ## 2026-07-05 — Milestone 4: Productization
 
 Full detail: [MILESTONE_4.md](MILESTONE_4.md). The roadmap itself was also restructured into Fase 1–12 this same day — see [ROADMAP.md](ROADMAP.md).
