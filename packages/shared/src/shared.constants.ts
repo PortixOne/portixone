@@ -11,3 +11,19 @@ export const DEFAULT_NETWORK_PRINTER_PORT = 9100;
  * package's own package.json version.
  */
 export const APP_VERSION = '0.1.0';
+
+/**
+ * The minimal distribution branding a developer's redistributed Runtime carries (licensing plan
+ * §9, terms §3). Deliberately small — Portix stays visibly present ("Powered by Portix.One")
+ * without a full white-label, which is a later Business-tier capability. Shown by the tray/
+ * dashboard when the Runtime is deployed under a named Application; a bare dev runtime keeps its
+ * own name.
+ *
+ * @param appName the developer's Application display name (e.g. "Nerion POS")
+ */
+export function distributionBranding(appName: string): string {
+  const trimmed = appName.trim();
+  return trimmed
+    ? `Printing Runtime for ${trimmed} — Powered by Portix.One`
+    : 'Printing Runtime — Powered by Portix.One';
+}
