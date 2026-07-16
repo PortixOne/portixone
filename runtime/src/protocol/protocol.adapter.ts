@@ -1,5 +1,5 @@
 import type { IncomingMessage } from 'node:http';
-import { PayloadTooLargeError } from '@portixone/shared';
+import { InvalidRequestError, PayloadTooLargeError } from '@portixone/shared';
 
 // Receipts can carry a logo/QR bitmap, so this is generous, but every JSON
 // body on this server — including /pairing/request, reachable with no
@@ -23,5 +23,15 @@ export async function readJsonBody<T>(req: IncomingMessage, maxBytes = DEFAULT_M
     chunks.push(chunk as Buffer);
   }
   const raw = Buffer.concat(chunks).toString('utf-8');
-  return raw ? (JSON.parse(raw) as T) : ({} as T);
+  if (!raw) {
+    return {} as T;
+  }
+  // A malformed body is the caller's fault (400), not the server's — without
+  // this catch the JSON.parse throw escapes to the route's catch-all as a
+  // generic 500 INTERNAL_ERROR.
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    throw new InvalidRequestError('Request body is not valid JSON');
+  }
 }
