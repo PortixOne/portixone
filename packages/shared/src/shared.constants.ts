@@ -10,7 +10,7 @@ export const DEFAULT_NETWORK_PRINTER_PORT = 9100;
  * update checks, distinct from PROTOCOL_VERSION (the wire contract) and each
  * package's own package.json version.
  */
-export const APP_VERSION = '0.1.0';
+export const APP_VERSION = '0.1.1';
 
 /**
  * The minimal distribution branding a developer's redistributed Runtime carries (licensing plan
