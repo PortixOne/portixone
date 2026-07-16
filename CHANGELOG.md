@@ -2,6 +2,21 @@
 
 A running log of what actually shipped and got validated — not a promise, a record. Package-level changes are also tracked per-package: [`sdk-js/CHANGELOG.md`](sdk-js/CHANGELOG.md), [`packages/protocol/CHANGELOG.md`](packages/protocol/CHANGELOG.md), [`packages/shared/CHANGELOG.md`](packages/shared/CHANGELOG.md).
 
+## 2026-07-16 — 0.1.1: the update channel actually works
+
+### Fixed
+
+- **The Runtime update check had never worked.** It asked GitHub for `/releases/latest`, which answers with the newest release of *any* product in this repo — so it kept returning an npm package tag (`sdk-v0.3.4`), a release with no installer and a version that isn't the Runtime's. The parser then failed on that tag and every check died with "Could not parse a version number to compare", silently, on every install. `/releases/latest` also hides pre-releases, so a pilot build was invisible to it regardless.
+
+  Updates are now discovered by the Runtime's own tag convention (`runtime-v<semver>`) across the full release list, so **publishing an npm package tag can never break the updater again**. Adds `stable` / `beta` / `internal` channels (inclusive downward, via `PORTIX_UPDATE_CHANNEL`, defaulting to `stable`). A release with no installer or no `SHA256SUMS.txt` is refused outright — an installer that can't be verified is worse than no update. Every passed-over release is logged with a reason, so a check that finds nothing is diagnosable instead of mute.
+
+> ### ⚠️ 0.1.0 cannot update itself
+>
+> 0.1.0 shipped with the broken updater, so it will never discover this release on its own. Machines
+> already running the 0.1.0 pilot need **one manual reinstall** to reach 0.1.1. From 0.1.1 onward,
+> updates work. Config, pairings, and printer selection survive the reinstall (they live in `.data/`,
+> which the installer does not touch).
+
 ## 2026-07-16 — Print-path fixes and the licensing layer
 
 The first Runtime installer release. Two of the fixes below were found by printing on real hardware, not by reading code — and both had to land before anything could be published.
